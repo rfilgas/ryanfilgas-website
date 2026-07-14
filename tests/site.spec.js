@@ -160,24 +160,11 @@ test('gallery selected photo stays in flow with number controls and thumbnail to
     };
   });
   await page.mouse.move(nextClickPoint.x, nextClickPoint.y);
+  await expect(page.locator('.gallery-selected-image')).toHaveAttribute('data-cursor-tone', 'light');
+  await expect(nextZone).toHaveCSS('cursor', /M6\.5.*%23555|M6\.5.*%2523555/);
   await page.mouse.click(nextClickPoint.x, nextClickPoint.y);
-  const resampledTone = await page.locator('.gallery-selected-image').evaluate(async (figure, point) => {
-    const image = figure.querySelector('img');
-    await image.decode();
-    const rect = image.getBoundingClientRect();
-    const canvas = document.createElement('canvas');
-    canvas.width = 1;
-    canvas.height = 1;
-    const context = canvas.getContext('2d', { willReadFrequently: true });
-    const x = Math.min(image.naturalWidth - 1, Math.max(0, Math.floor(((point.x - rect.left) / rect.width) * image.naturalWidth)));
-    const y = Math.min(image.naturalHeight - 1, Math.max(0, Math.floor(((point.y - rect.top) / rect.height) * image.naturalHeight)));
-    context.drawImage(image, x, y, 1, 1, 0, 0, 1, 1);
-    const [r, g, b] = context.getImageData(0, 0, 1, 1).data;
-    const luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-    return luminance >= 128 ? 'light' : 'dark';
-  }, nextClickPoint);
-  await expect(page.locator('.gallery-selected-image')).toHaveAttribute('data-cursor-tone', resampledTone);
-  await expect(nextZone).toHaveCSS('cursor', resampledTone === 'light' ? /M6\.5.*%23555|M6\.5.*%2523555/ : /M6\.5.*%23fff|M6\.5.*%2523fff/);
+  await expect(page.locator('.gallery-selected-image')).toHaveAttribute('data-cursor-tone', 'light');
+  await expect(nextZone).toHaveCSS('cursor', /M6\.5.*%23555|M6\.5.*%2523555/);
   await previousZone.click();
   await previousZone.click();
   await expect(selectedImage).toHaveAttribute('src', initialImage);

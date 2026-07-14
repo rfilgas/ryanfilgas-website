@@ -83,9 +83,14 @@
   const updateCursorTone = (event) => {
     if (!selectedImage.naturalWidth || !cursorContext) return;
     const rect = selectedImage.getBoundingClientRect();
-    const x = Math.min(selectedImage.naturalWidth - 1, Math.max(0, Math.floor(((event.clientX - rect.left) / rect.width) * selectedImage.naturalWidth)));
-    const y = Math.min(selectedImage.naturalHeight - 1, Math.max(0, Math.floor(((event.clientY - rect.top) / rect.height) * selectedImage.naturalHeight)));
     const direction = event.currentTarget === previousZone ? 'previous' : 'next';
+    if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) {
+      selectedFigure.dataset.cursorTone = 'light';
+      event.currentTarget.style.cursor = arrowCursors[direction].light;
+      return;
+    }
+    const x = Math.floor(((event.clientX - rect.left) / rect.width) * selectedImage.naturalWidth);
+    const y = Math.floor(((event.clientY - rect.top) / rect.height) * selectedImage.naturalHeight);
     try {
       cursorContext.drawImage(selectedImage, x, y, 1, 1, 0, 0, 1, 1);
       const [r, g, b] = cursorContext.getImageData(0, 0, 1, 1).data;
