@@ -7,8 +7,7 @@ semantic, dependency-free static HTML that shares the site's native shell
 (assets/native.css) with the rest of the already-converted pages.
 
 Covers:
-  * blog-insights.html, blog.html, and the mirrored offset list -> the Insights index
-  * blog?tag=Carson Block.html / Frozen.html -> legacy tag routes
+  * insights/, blog/, and the mirrored offset list -> the Insights index
   * insights/tag/*.html                -> tag list routes
   * insights/*/*/*/*.html              -> individual articles
 """
@@ -46,14 +45,6 @@ ARTICLE_PATHS = [
     "insights/2015/9/6/i-graduated.html",
 ]
 
-# Root-level legacy routes that mirrored the old "/blog?tag=" filter UI.
-# The static mirror captured the same unfiltered page for every query string,
-# so we rebuild them as properly filtered tag routes instead, matching the
-# real tag pages under insights/tag/.
-LEGACY_TAG_ROUTES = {
-    "blog?tag=Carson Block.html": "Carson+Block",
-    "blog?tag=Frozen.html": "Frozen",
-}
 PAGINATED_INDEX_ROUTE = "blog/page-2.html"
 LEGACY_PAGINATED_INDEX_ROUTE = "blog/index.html?offset=1487147475880.html"
 POSTS_PER_PAGE = 5
@@ -389,7 +380,7 @@ def page_shell(title: str, description: str, from_dir: str, insights_current: bo
         title=title,
         description=description,
         body=main_html,
-        active="blog-insights.html" if insights_current else "",
+        active="insights/" if insights_current else "",
         prefix=_prefix(from_dir),
     )
 
@@ -513,7 +504,7 @@ def render_tag_page(tag_file: str, tag_name: str, matching: list[Article], from_
     title = f"Tag: {tag_name}"
     main = f"""  <main class="content-page post-index">
     <h1>{escape(title)}</h1>
-    <p><a href="{rel(from_dir, 'blog-insights.html')}">\u2190 All Insights</a></p>
+    <p><a href="{rel(from_dir, 'insights/')}">\u2190 All Insights</a></p>
 {render_post_list(matching, from_dir)}
   </main>"""
     return page_shell(title, f"Insights posts tagged {tag_name} \u2013 Ryan Filgas", from_dir, True, main)
@@ -544,11 +535,11 @@ def main():
     first_page = articles[:POSTS_PER_PAGE]
     second_page = articles[POSTS_PER_PAGE:]
 
-    index_html = render_index_page(first_page, all_tags, "Insights", ".", None, PAGINATED_INDEX_ROUTE if second_page else None)
-    (ROOT / "blog-insights.html").write_text(index_html, encoding="utf-8")
-    blog_html = render_index_page(first_page, all_tags, "Blog", ".", None, PAGINATED_INDEX_ROUTE if second_page else None)
-    (ROOT / "blog.html").write_text(blog_html, encoding="utf-8")
-    offset_html = render_index_page(second_page, all_tags, "Blog", "blog", "blog-insights.html", None)
+    index_html = render_index_page(first_page, all_tags, "Insights", "insights", None, PAGINATED_INDEX_ROUTE if second_page else None)
+    (ROOT / "insights" / "index.html").write_text(index_html, encoding="utf-8")
+    blog_html = render_index_page(first_page, all_tags, "Blog", "blog", None, PAGINATED_INDEX_ROUTE if second_page else None)
+    (ROOT / "blog" / "index.html").write_text(blog_html, encoding="utf-8")
+    offset_html = render_index_page(second_page, all_tags, "Blog", "blog", "insights/", None)
     (ROOT / PAGINATED_INDEX_ROUTE).write_text(offset_html, encoding="utf-8")
     legacy_offset_path = ROOT / LEGACY_PAGINATED_INDEX_ROUTE
     if legacy_offset_path.exists() and LEGACY_PAGINATED_INDEX_ROUTE != PAGINATED_INDEX_ROUTE:
@@ -560,18 +551,11 @@ def main():
         page = render_tag_page(tag_file, name, matching, "insights/tag")
         out_path.write_text(page, encoding="utf-8")
 
-    # Legacy root-level tag routes, now correctly filtered.
-    for filename, tag_slug in LEGACY_TAG_ROUTES.items():
-        name, matching = tag_registry[f"{tag_slug}.html"]
-        page = render_tag_page(f"{tag_slug}.html", name, matching, ".")
-        (ROOT / filename).write_text(page, encoding="utf-8")
-
     forbidden = ("squarespace", "typekit", "google fonts", "cdn.jsdelivr")
     generated_paths = (
         [ROOT / a.path for a in articles]
-        + [ROOT / "blog-insights.html", ROOT / "blog.html", ROOT / PAGINATED_INDEX_ROUTE]
+        + [ROOT / "insights" / "index.html", ROOT / "blog" / "index.html", ROOT / PAGINATED_INDEX_ROUTE]
         + [ROOT / "insights" / "tag" / t for t in tag_registry]
-        + [ROOT / f for f in LEGACY_TAG_ROUTES]
     )
     for path in generated_paths:
         text = path.read_text(encoding="utf-8")
@@ -587,8 +571,7 @@ def main():
 
     print(f"Articles rewritten: {len(articles)}")
     print(f"Tag pages rewritten: {len(tag_registry)}")
-    print(f"Index pages rewritten: 3 (blog-insights.html, blog.html, page-2 route)")
-    print(f"Legacy tag routes rewritten: {len(LEGACY_TAG_ROUTES)}")
+    print("Index pages rewritten: 3 (insights/, blog/, page-2 route)")
 
 
 if __name__ == "__main__":

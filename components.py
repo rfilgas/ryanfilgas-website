@@ -14,21 +14,21 @@ from html import escape
 # `work.html`) and expand to their children.
 ART_CHILDREN = [
     ("Narrative Portraiture", "index.html"),
-    ("Landscape", "landscape.html"),
-    ("Aerial Silks", "arial-silks.html"),
-    ("Free Flight", "free-flight.html"),
-    ("Digital Art", "digital-art.html"),
+    ("Landscape", "landscape/"),
+    ("Aerial Silks", "arial-silks/"),
+    ("Free Flight", "free-flight/"),
+    ("Digital Art", "digital-art/"),
 ]
 WORK_CHILDREN = [
-    ("Happy Hour", "editorial-happy-hour.html"),
-    ("Arch-Interiors", "architecture-interior.html"),
-    ("Arch-Exteriors", "architecture-exterior.html"),
+    ("Happy Hour", "editorial-happy-hour/"),
+    ("Arch-Interiors", "architecture-interior/"),
+    ("Arch-Exteriors", "architecture-exterior/"),
 ]
 MAIN_LINKS = [
-    ("About Me (Art)", "about-me-art.html"),
-    ("About Me (SWE)", "about-software-engineering.html"),
-    ("Connect", "connect.html"),
-    ("Insights", "blog-insights.html"),
+    ("About Me (Art)", "about-me-art/"),
+    ("About Me (SWE)", "about-software-engineering/"),
+    ("Connect", "connect/"),
+    ("Insights", "insights/"),
 ]
 SOCIAL_LINKS = [
     ("Email", "mailto:ryan@ryanfilgas.com", "email"),
@@ -129,14 +129,14 @@ def document(*, title, description, body, active="", prefix="", title_suffix=Tru
 """
 
 
-def gallery_main(label, photos):
+def gallery_main(label, photos, prefix=""):
     """Gallery grid + in-flow selected photo view. ``photos`` is a list of (src, alt)."""
     cards = []
     for i, (src, alt) in enumerate(photos):
         loading = "" if i == 0 else ' loading="lazy"'
         cards.append(
             f'      <button class="photo" type="button" data-photo="{i + 1}">'
-            f'<img src="{escape(src, quote=True)}" alt="{escape(alt, quote=True)}"{loading}></button>'
+            f'<img src="{prefix}{escape(src, quote=True)}" alt="{escape(alt, quote=True)}"{loading}></button>'
         )
     grid = "\n".join(cards)
     return f"""  <main class="gallery" aria-label="{escape(label, quote=True)}">

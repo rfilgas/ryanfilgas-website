@@ -43,34 +43,43 @@ def gallery_photos(folder: str):
 
 def build_galleries():
     for slug, (title, label, folder, is_home) in content.GALLERIES.items():
+        output_path = ROOT / "index.html" if is_home else ROOT / slug / "index.html"
+        prefix = "" if is_home else "../"
         photos = gallery_photos(folder)
-        body = components.gallery_main(label, photos)
+        body = components.gallery_main(label, photos, prefix)
         html = components.document(
             title=title,
             description=DESCRIPTION,
             body=body,
-            active=f"{slug}.html",
+            active="index.html" if is_home else f"{slug}/",
+            prefix=prefix,
             title_suffix=not is_home,
         )
-        (ROOT / f"{slug}.html").write_text(html, encoding="utf-8")
-        print(f"{slug}.html: {len(photos)} photos")
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(html, encoding="utf-8")
+        print(f"{output_path.relative_to(ROOT)}: {len(photos)} photos")
 
 
 def build_text_pages():
     for slug, (title, description) in content.TEXT_PAGES.items():
         body = (ROOT / "content" / f"{slug}.html").read_text(encoding="utf-8").rstrip("\n")
+        output_path = ROOT / slug / "index.html"
         html = components.document(
             title=title,
             description=description,
             body="  " + body,
-            active=f"{slug}.html",
+            active=f"{slug}/",
+            prefix="../",
         )
-        (ROOT / f"{slug}.html").write_text(html, encoding="utf-8")
-        print(f"{slug}.html: text page")
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(html, encoding="utf-8")
+        print(f"{output_path.relative_to(ROOT)}: text page")
 
 
 def build_redirects():
     for slug, target in content.REDIRECTS.items():
+        output_path = ROOT / slug / "index.html"
+        target = "../" + target
         html = (
             "<!doctype html>\n<html lang=\"en\">\n<head>\n"
             "  <meta charset=\"utf-8\">\n"
@@ -79,8 +88,9 @@ def build_redirects():
             "  <title>Ryan Filgas</title>\n</head>\n"
             f"<body><p><a href=\"{target}\">Continue to Ryan Filgas</a></p></body>\n</html>\n"
         )
-        (ROOT / f"{slug}.html").write_text(html, encoding="utf-8")
-        print(f"{slug}.html: redirect -> {target}")
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(html, encoding="utf-8")
+        print(f"{output_path.relative_to(ROOT)}: redirect -> {target}")
 
 
 def main():

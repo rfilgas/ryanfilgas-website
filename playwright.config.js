@@ -3,7 +3,7 @@ const { defineConfig, devices } = require('@playwright/test');
 module.exports = defineConfig({
   testDir: './tests',
   use: {
-    baseURL: 'http://localhost:8137',
+    baseURL: process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:8137',
     browserName: 'chromium',
   },
   projects: [

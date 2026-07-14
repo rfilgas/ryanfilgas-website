@@ -2,17 +2,17 @@ const { test, expect } = require('@playwright/test');
 
 const pagesFromNav = [
   'index.html',
-  'landscape.html',
-  'arial-silks.html',
-  'free-flight.html',
-  'digital-art.html',
-  'editorial-happy-hour.html',
-  'architecture-interior.html',
-  'architecture-exterior.html',
-  'about-me-art.html',
-  'about-software-engineering.html',
-  'connect.html',
-  'blog-insights.html',
+  'landscape/',
+  'arial-silks/',
+  'free-flight/',
+  'digital-art/',
+  'editorial-happy-hour/',
+  'architecture-interior/',
+  'architecture-exterior/',
+  'about-me-art/',
+  'about-software-engineering/',
+  'connect/',
+  'insights/',
 ];
 
 test('side menu matches desktop and mobile behavior', async ({ page }, testInfo) => {
@@ -77,25 +77,42 @@ test('gallery selected photo stays in flow with number controls and thumbnail to
   await expect(galleryColumns).toBeVisible();
 });
 
+test('gallery selection preserves image aspect ratio and Insights tiles are uniform', async ({ page }) => {
+  await page.goto('/landscape/');
+  await page.locator('.gallery-columns .photo').first().click();
+  const selected = page.locator('.gallery-selected-image img');
+  const ratios = await selected.evaluate((image) => ({
+    natural: image.naturalWidth / image.naturalHeight,
+    rendered: image.clientWidth / image.clientHeight,
+  }));
+  expect(ratios.rendered).toBeCloseTo(ratios.natural, 3);
+
+  await page.goto('/insights/');
+  const tileRatios = await page.locator('.post-gallery-link img').evaluateAll((images) =>
+    images.map((image) => image.clientWidth / image.clientHeight)
+  );
+  expect(new Set(tileRatios.map((ratio) => ratio.toFixed(3))).size).toBe(1);
+});
+
 test('legacy redirect pages land on current targets', async ({ page }) => {
-  await page.goto('/art.html');
+  await page.goto('/art/');
   await expect(page).toHaveURL(/\/index\.html$/);
   await expect(page.locator('main.gallery')).toHaveAttribute('aria-label', 'Narrative Portraiture');
 
-  await page.goto('/work.html');
-  await expect(page).toHaveURL(/\/editorial-happy-hour\.html$/);
+  await page.goto('/work/');
+  await expect(page).toHaveURL(/\/editorial-happy-hour\/$/);
   await expect(page.locator('main.gallery')).toHaveAttribute('aria-label', 'Editorial - Happy Hour');
 });
 
 test('connect page exposes mailto link and no contact form', async ({ page }) => {
-  await page.goto('/connect.html');
+  await page.goto('/connect/');
   expect(await page.locator('a[href="mailto:ryan@ryanfilgas.com"]').count()).toBeGreaterThan(0);
   await expect(page.locator('form')).toHaveCount(0);
 });
 
 test('blog index links to articles that render with shared navigation', async ({ page }) => {
-  await page.goto('/blog-insights.html');
-  const articleLink = page.locator('.post-list .post-gallery-link[href^="insights/"]').first();
+  await page.goto('/insights/');
+  const articleLink = page.locator('.post-list .post-gallery-link[href^="2023/"]').first();
   await expect(articleLink).toBeVisible();
 
   await articleLink.click();
@@ -105,9 +122,9 @@ test('blog index links to articles that render with shared navigation', async ({
 });
 
 test('blog pagination next link loads browser-safe page 2', async ({ page, request }) => {
-  await page.goto('/blog-insights.html');
+  await page.goto('/insights/');
   const nextLink = page.locator('.post-pagination a', { hasText: 'Next' });
-  await expect(nextLink).toHaveAttribute('href', 'blog/page-2.html');
+  await expect(nextLink).toHaveAttribute('href', '../blog/page-2.html');
 
   await nextLink.click();
   await expect(page).toHaveURL(/\/blog\/page-2\.html$/);

@@ -29,5 +29,5 @@ TEXT_PAGES = {
 # redirect page -> target (parent nav links on the live site)
 REDIRECTS = {
     "art": "index.html",
-    "work": "editorial-happy-hour.html",
+    "work": "editorial-happy-hour/",
 }
