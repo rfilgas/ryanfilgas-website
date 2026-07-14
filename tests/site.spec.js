@@ -118,13 +118,14 @@ test('gallery selected photo stays in flow with number controls and thumbnail to
     const rect = image.getBoundingClientRect();
     const point = (tone) => {
       for (let y = 0; y < canvas.height; y += Math.max(1, Math.floor(canvas.height / 24))) {
-        for (let x = 0; x < canvas.width; x += Math.max(1, Math.floor(canvas.width / 24))) {
+        for (let x = 0; x < canvas.width / 2; x += Math.max(1, Math.floor(canvas.width / 24))) {
           const [r, g, b] = context.getImageData(x, y, 1, 1).data;
           const luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-          if ((tone === 'light' && luminance > 190) || (tone === 'dark' && luminance < 90)) {
+          if ((tone === 'light' && luminance >= 128) || (tone === 'dark' && luminance < 128)) {
             return {
               x: rect.left + (x / image.naturalWidth) * rect.width,
               y: rect.top + (y / image.naturalHeight) * rect.height,
+              luminance,
             };
           }
         }
@@ -135,12 +136,14 @@ test('gallery selected photo stays in flow with number controls and thumbnail to
   });
   expect(tonePoints.light).toBeTruthy();
   expect(tonePoints.dark).toBeTruthy();
+  expect(tonePoints.dark.luminance).toBeLessThan(128);
+  expect(tonePoints.light.luminance).toBeGreaterThanOrEqual(128);
   await page.mouse.move(tonePoints.dark.x, tonePoints.dark.y);
   await expect(page.locator('.gallery-selected-image')).toHaveAttribute('data-cursor-tone', 'dark');
   await expect(previousZone).toHaveCSS('cursor', /%23fff/);
   await page.mouse.move(tonePoints.light.x, tonePoints.light.y);
   await expect(page.locator('.gallery-selected-image')).toHaveAttribute('data-cursor-tone', 'light');
-  await expect(previousZone).toHaveCSS('cursor', /%23777/);
+  await expect(previousZone).toHaveCSS('cursor', /%23555/);
   const secondImage = await selectedImage.getAttribute('src');
   await previousZone.click();
   await expect(selectedImage).toHaveAttribute('src', initialImage);

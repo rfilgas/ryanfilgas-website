@@ -25,6 +25,20 @@
   let columns = 0;
   cursorSample.width = 1;
   cursorSample.height = 1;
+  const cursor = (path, color, fallback) =>
+    `url("data:image/svg+xml,${encodeURIComponent(
+      `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 18 18"><path d="${path}" fill="none" stroke="${color}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`
+    )}") 9 9, ${fallback}`;
+  const arrowCursors = {
+    previous: {
+      dark: cursor('M11.5 3 5.5 9l6 6', '#fff', 'w-resize'),
+      light: cursor('M11.5 3 5.5 9l6 6', '#555', 'w-resize'),
+    },
+    next: {
+      dark: cursor('M6.5 3 12.5 9l-6 6', '#fff', 'e-resize'),
+      light: cursor('M6.5 3 12.5 9l-6 6', '#555', 'e-resize'),
+    },
+  };
 
   const reveal = (image) => image.decode().catch(() => {}).finally(() => image.classList.add('is-loaded'));
 
@@ -47,6 +61,8 @@
     selectedImage.src = current.src;
     selectedImage.alt = current.alt;
     selectedFigure.dataset.cursorTone = 'dark';
+    previousZone.style.cursor = '';
+    nextZone.style.cursor = '';
     sizeSelection(current);
     selectedImage.decode().catch(() => {}).finally(() => sizeSelection());
     photos.forEach((photo, i) => photo.classList.toggle('is-selected', i === selected));
@@ -66,9 +82,12 @@
       cursorContext.drawImage(selectedImage, x, y, 1, 1, 0, 0, 1, 1);
       const [r, g, b] = cursorContext.getImageData(0, 0, 1, 1).data;
       const luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-      selectedFigure.dataset.cursorTone = luminance > 160 ? 'light' : 'dark';
+      const tone = luminance >= 128 ? 'light' : 'dark';
+      selectedFigure.dataset.cursorTone = tone;
+      event.currentTarget.style.cursor = arrowCursors[event.currentTarget === previousZone ? 'previous' : 'next'][tone];
     } catch {
       selectedFigure.dataset.cursorTone = 'dark';
+      event.currentTarget.style.cursor = arrowCursors[event.currentTarget === previousZone ? 'previous' : 'next'].dark;
     }
   };
 
