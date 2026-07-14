@@ -1,6 +1,6 @@
 # ryanfilgas.com
 
-**Live site:** https://www.ryanfilgas.com — source: https://github.com/rfilgas/ryanfilgas-website
+**Live site:** https://www.ryanfilgas.com — hosted: https://rfilgas.github.io/ryanfilgas-website/ — source: https://github.com/rfilgas/ryanfilgas-website
 
 A hand-maintained static site. No framework, no build dependencies — just Python 3
 generating plain HTML from small, shared components. Open the generated `.html`
