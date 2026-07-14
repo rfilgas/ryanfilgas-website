@@ -107,6 +107,40 @@ test('gallery selected photo stays in flow with number controls and thumbnail to
   expect(hitZones.next.height).toBeCloseTo(hitZones.image.height, 1);
   expect(hitZones.previousCursor).toContain('%23fff');
   expect(hitZones.nextCursor).toContain('%23fff');
+  const tonePoints = await page.locator('.gallery-selected-image').evaluate(async (figure) => {
+    const image = figure.querySelector('img');
+    await image.decode();
+    const canvas = document.createElement('canvas');
+    canvas.width = image.naturalWidth;
+    canvas.height = image.naturalHeight;
+    const context = canvas.getContext('2d', { willReadFrequently: true });
+    context.drawImage(image, 0, 0);
+    const rect = image.getBoundingClientRect();
+    const point = (tone) => {
+      for (let y = 0; y < canvas.height; y += Math.max(1, Math.floor(canvas.height / 24))) {
+        for (let x = 0; x < canvas.width; x += Math.max(1, Math.floor(canvas.width / 24))) {
+          const [r, g, b] = context.getImageData(x, y, 1, 1).data;
+          const luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+          if ((tone === 'light' && luminance > 190) || (tone === 'dark' && luminance < 90)) {
+            return {
+              x: rect.left + (x / image.naturalWidth) * rect.width,
+              y: rect.top + (y / image.naturalHeight) * rect.height,
+            };
+          }
+        }
+      }
+      return null;
+    };
+    return { light: point('light'), dark: point('dark') };
+  });
+  expect(tonePoints.light).toBeTruthy();
+  expect(tonePoints.dark).toBeTruthy();
+  await page.mouse.move(tonePoints.dark.x, tonePoints.dark.y);
+  await expect(page.locator('.gallery-selected-image')).toHaveAttribute('data-cursor-tone', 'dark');
+  await expect(previousZone).toHaveCSS('cursor', /%23fff/);
+  await page.mouse.move(tonePoints.light.x, tonePoints.light.y);
+  await expect(page.locator('.gallery-selected-image')).toHaveAttribute('data-cursor-tone', 'light');
+  await expect(previousZone).toHaveCSS('cursor', /%23777/);
   const secondImage = await selectedImage.getAttribute('src');
   await previousZone.click();
   await expect(selectedImage).toHaveAttribute('src', initialImage);
