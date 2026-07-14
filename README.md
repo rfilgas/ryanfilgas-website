@@ -1,5 +1,7 @@
 # ryanfilgas.com
 
+**Live site:** https://www.ryanfilgas.com — source: https://github.com/rfilgas/ryanfilgas-website
+
 A hand-maintained static site. No framework, no build dependencies — just Python 3
 generating plain HTML from small, shared components. Open the generated `.html`
 files directly or serve the folder with any static file server.
