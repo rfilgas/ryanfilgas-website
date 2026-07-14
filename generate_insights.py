@@ -445,29 +445,19 @@ def render_article_page(article: Article) -> str:
 
 def render_post_card(article: Article, from_dir: str) -> str:
     href = rel(from_dir, article.path)
-    thumb = ""
-    if article.thumbnail:
-        thumb = f'<a href="{href}" class="post-card-thumb" tabindex="-1" aria-hidden="true"><img src="{rel(from_dir, article.thumbnail)}" alt="" loading="lazy"></a>'
-    excerpt = f"<p>{escape(article.excerpt)}</p>" if article.excerpt else ""
-    tags = ""
-    if article.tags:
-        tag_links = ", ".join(
-            f'<a href="{rel(from_dir, "insights/tag/" + tag_file)}">{escape(name)}</a>' for tag_file, name in article.tags
-        )
-        tags = f'<p class="post-card-tags">Tags: {tag_links}</p>'
+    if not article.thumbnail:
+        return ""
     return f"""      <li class="post-card">
-        {thumb}
-        <div class="post-card-body">
-          <time datetime="{escape(article.date_iso, quote=True)}">{escape(article.date_display)}</time>
-          <h2><a href="{href}">{escape(article.title)}</a></h2>
-          {excerpt}
-          {tags}
-        </div>
+        <a href="{href}" class="post-gallery-link">
+          <img src="{rel(from_dir, article.thumbnail)}" alt="" loading="lazy">
+          <time class="post-gallery-date" datetime="{escape(article.date_iso, quote=True)}">{escape(article.date_display)}</time>
+          <span class="post-gallery-title">{escape(article.title)}</span>
+        </a>
       </li>"""
 
 
 def render_post_list(articles: list[Article], from_dir: str) -> str:
-    cards = "\n".join(render_post_card(article, from_dir) for article in articles)
+    cards = "\n".join(card for article in articles if (card := render_post_card(article, from_dir)))
     return f'    <ul class="post-list">\n{cards}\n    </ul>'
 
 

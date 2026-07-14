@@ -95,7 +95,7 @@ test('connect page exposes mailto link and no contact form', async ({ page }) =>
 
 test('blog index links to articles that render with shared navigation', async ({ page }) => {
   await page.goto('/blog-insights.html');
-  const articleLink = page.locator('.post-list h2 a[href^="insights/"]').first();
+  const articleLink = page.locator('.post-list .post-gallery-link[href^="insights/"]').first();
   await expect(articleLink).toBeVisible();
 
   await articleLink.click();
@@ -111,7 +111,7 @@ test('blog pagination next link loads browser-safe page 2', async ({ page, reque
 
   await nextLink.click();
   await expect(page).toHaveURL(/\/blog\/page-2\.html$/);
-  await expect(page.locator('main.post-index .post-list h2 a').first()).toHaveText('New Directions');
+  await expect(page.locator('main.post-index .post-list .post-gallery-title').first()).toHaveText('New Directions');
 
   const response = await request.get('/blog/page-2.html');
   expect(response.status()).toBe(200);
