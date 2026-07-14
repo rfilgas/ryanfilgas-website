@@ -10,8 +10,8 @@ and nav href is prefixed with it, so the same nav works at any depth.
 from html import escape
 
 # ── Navigation: single source of truth for the side menu ──────────────
-# Parent labels ("Art", "Work") are links to redirect routes (`art/`,
-# `work/`) and expand to their children.
+# Parent labels ("Art", "Work") are disclosure controls only; navigation
+# happens through their child links.
 ART_CHILDREN = [
     ("Narrative Portraiture", "index.html"),
     ("Landscape", "landscape/"),
@@ -48,15 +48,14 @@ def _link(label, target, active, prefix):
     return f'<a href="{_href(target, prefix)}"{current}>{escape(label)}</a>'
 
 
-def _submenu(label, parent_target, children, active, prefix):
-    is_open = active == parent_target or any(target == active for _, target in children)
+def _submenu(label, children, active, prefix):
+    is_open = any(target == active for _, target in children)
     open_attr = " open" if is_open else ""
     items = "".join(
         f"<li>{_link(text, target, active, prefix)}</li>" for text, target in children
     )
-    parent = _link(label, parent_target, active, prefix)
     return (
-        f"<li><details{open_attr}><summary>{parent}</summary>"
+        f"<li><details{open_attr}><summary>{escape(label)}</summary>"
         f"<ul>{items}</ul></details></li>"
     )
 
@@ -84,8 +83,8 @@ def _social_icon(kind):
 
 def header(active="", prefix=""):
     """Site header + fixed side menu, identical on every page."""
-    art = _submenu("Art", "art/", ART_CHILDREN, active, prefix)
-    work = _submenu("Work", "work/", WORK_CHILDREN, active, prefix)
+    art = _submenu("Art", ART_CHILDREN, active, prefix)
+    work = _submenu("Work", WORK_CHILDREN, active, prefix)
     main = "".join(f"<li>{_link(t, h, active, prefix)}</li>" for t, h in MAIN_LINKS)
     social = "".join(
         f'<a class="social-link" href="{_href(h, prefix)}" aria-label="{escape(t, quote=True)}"><span class="sr-only">{escape(t)}</span>{_social_icon(icon)}</a>'
@@ -141,7 +140,11 @@ def gallery_main(label, photos, prefix=""):
     grid = "\n".join(cards)
     return f"""  <main class="gallery" aria-label="{escape(label, quote=True)}">
     <section class="gallery-selected" aria-label="Selected photo" hidden>
-      <figure class="gallery-selected-image"><img alt=""></figure>
+      <figure class="gallery-selected-image">
+        <img alt="">
+        <button class="gallery-selected-nav-zone gallery-selected-nav-zone-prev" type="button" aria-label="Previous photo" data-action="previous-photo"></button>
+        <button class="gallery-selected-nav-zone gallery-selected-nav-zone-next" type="button" aria-label="Next photo" data-action="next-photo"></button>
+      </figure>
       <div class="gallery-selected-meta">
         <div class="gallery-selected-numbers" aria-label="Photo navigation"></div>
         <button class="gallery-thumbnails-toggle" type="button" data-action="thumbnails">show thumbnails</button>

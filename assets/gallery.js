@@ -16,6 +16,8 @@
   const selectedImage = selectedPanel.querySelector('.gallery-selected-image img');
   const numbers = selectedPanel.querySelector('.gallery-selected-numbers');
   const thumbnails = selectedPanel.querySelector('[data-action="thumbnails"]');
+  const previousZone = selectedPanel.querySelector('[data-action="previous-photo"]');
+  const nextZone = selectedPanel.querySelector('[data-action="next-photo"]');
   let selected = -1;
   let columns = 0;
 
@@ -73,6 +75,19 @@
   });
 
   thumbnails.addEventListener('click', showThumbnails);
+  previousZone.addEventListener('click', () => renderSelection(selected - 1));
+  nextZone.addEventListener('click', () => renderSelection(selected + 1));
+  window.addEventListener('keydown', (event) => {
+    if (selectedPanel.hidden) return;
+    if (selected < 0) return;
+    if (event.key === 'ArrowLeft') {
+      event.preventDefault();
+      renderSelection(selected - 1);
+    } else if (event.key === 'ArrowRight') {
+      event.preventDefault();
+      renderSelection(selected + 1);
+    }
+  });
   window.addEventListener('resize', layout);
 
   Promise.all(photos.map((photo) => photo.querySelector('img').decode().catch(() => {}))).then(() => {

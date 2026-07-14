@@ -15,8 +15,8 @@
     <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="site-navigation">Menu</button>
     <nav class="site-nav" id="site-navigation" aria-label="Main navigation">
       <ul>
-        <li><details open><summary><a href="../art/">Art</a></summary><ul><li><a href="../index.html">Narrative Portraiture</a></li><li><a href="../landscape/">Landscape</a></li><li><a href="../arial-silks/" aria-current="page">Aerial Silks</a></li><li><a href="../free-flight/">Free Flight</a></li><li><a href="../digital-art/">Digital Art</a></li></ul></details></li>
-        <li><details><summary><a href="../work/">Work</a></summary><ul><li><a href="../editorial-happy-hour/">Happy Hour</a></li><li><a href="../architecture-interior/">Arch-Interiors</a></li><li><a href="../architecture-exterior/">Arch-Exteriors</a></li></ul></details></li>
+        <li><details open><summary>Art</summary><ul><li><a href="../index.html">Narrative Portraiture</a></li><li><a href="../landscape/">Landscape</a></li><li><a href="../arial-silks/" aria-current="page">Aerial Silks</a></li><li><a href="../free-flight/">Free Flight</a></li><li><a href="../digital-art/">Digital Art</a></li></ul></details></li>
+        <li><details><summary>Work</summary><ul><li><a href="../editorial-happy-hour/">Happy Hour</a></li><li><a href="../architecture-interior/">Arch-Interiors</a></li><li><a href="../architecture-exterior/">Arch-Exteriors</a></li></ul></details></li>
         <li><a href="../about-me-art/">About Me (Art)</a></li><li><a href="../about-software-engineering/">About Me (SWE)</a></li><li><a href="../connect/">Connect</a></li><li><a href="../insights/">Insights</a></li>
       </ul>
     </nav>
@@ -24,7 +24,11 @@
   </header>
   <main class="gallery" aria-label="Aerial Silks">
     <section class="gallery-selected" aria-label="Selected photo" hidden>
-      <figure class="gallery-selected-image"><img alt=""></figure>
+      <figure class="gallery-selected-image">
+        <img alt="">
+        <button class="gallery-selected-nav-zone gallery-selected-nav-zone-prev" type="button" aria-label="Previous photo" data-action="previous-photo"></button>
+        <button class="gallery-selected-nav-zone gallery-selected-nav-zone-next" type="button" aria-label="Next photo" data-action="next-photo"></button>
+      </figure>
       <div class="gallery-selected-meta">
         <div class="gallery-selected-numbers" aria-label="Photo navigation"></div>
         <button class="gallery-thumbnails-toggle" type="button" data-action="thumbnails">show thumbnails</button>
