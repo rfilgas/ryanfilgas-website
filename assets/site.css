@@ -112,6 +112,7 @@ a:focus-visible {
   margin: 0;
 }
 .gallery-selected-image {
+  display: inline-block;
   position: relative;
   margin: 0;
 }
