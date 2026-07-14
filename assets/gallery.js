@@ -13,6 +13,7 @@
   if (!gallery || !selectedPanel) return;
 
   const photos = [...document.querySelectorAll('.photo')];
+  const selectedFigure = selectedPanel.querySelector('.gallery-selected-image');
   const selectedImage = selectedPanel.querySelector('.gallery-selected-image img');
   const numbers = selectedPanel.querySelector('.gallery-selected-numbers');
   const thumbnails = selectedPanel.querySelector('[data-action="thumbnails"]');
@@ -23,11 +24,26 @@
 
   const reveal = (image) => image.decode().catch(() => {}).finally(() => image.classList.add('is-loaded'));
 
+  const sizeSelection = (image = selectedImage) => {
+    if (selected < 0 || !image.naturalWidth) return;
+    if (window.matchMedia('(max-width: 699px)').matches) {
+      selectedFigure.style.width = '';
+      selectedFigure.style.height = '';
+      return;
+    }
+    const ratio = image.naturalWidth / image.naturalHeight;
+    const width = Math.min(window.innerWidth - 233, (window.innerHeight - 46) * ratio);
+    selectedFigure.style.width = `${Math.max(1, width)}px`;
+    selectedFigure.style.height = `${Math.max(1, width / ratio)}px`;
+  };
+
   const renderSelection = (index) => {
     selected = ((index % photos.length) + photos.length) % photos.length;
     const current = photos[selected].querySelector('img');
     selectedImage.src = current.src;
     selectedImage.alt = current.alt;
+    sizeSelection(current);
+    selectedImage.decode().catch(() => {}).finally(() => sizeSelection());
     photos.forEach((photo, i) => photo.classList.toggle('is-selected', i === selected));
     numbers.querySelectorAll('button').forEach((button, i) => {
       button.setAttribute('aria-current', i === selected ? 'page' : 'false');
@@ -88,7 +104,10 @@
       renderSelection(selected + 1);
     }
   });
-  window.addEventListener('resize', layout);
+  window.addEventListener('resize', () => {
+    layout();
+    sizeSelection();
+  });
 
   Promise.all(photos.map((photo) => photo.querySelector('img').decode().catch(() => {}))).then(() => {
     columns = 0;

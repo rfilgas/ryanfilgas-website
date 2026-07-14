@@ -89,6 +89,24 @@ test('gallery selected photo stays in flow with number controls and thumbnail to
 
   await expect(nextZone).toBeVisible();
   await expect(previousZone).toBeVisible();
+  const hitZones = await page.locator('.gallery-selected-image').evaluate((figure) => {
+    const image = figure.querySelector('img').getBoundingClientRect();
+    const previous = figure.querySelector('[data-action="previous-photo"]').getBoundingClientRect();
+    const next = figure.querySelector('[data-action="next-photo"]').getBoundingClientRect();
+    return {
+      image,
+      previous,
+      next,
+      previousCursor: getComputedStyle(figure.querySelector('[data-action="previous-photo"]')).cursor,
+      nextCursor: getComputedStyle(figure.querySelector('[data-action="next-photo"]')).cursor,
+    };
+  });
+  expect(hitZones.previous.x).toBeCloseTo(hitZones.image.x, 1);
+  expect(hitZones.next.right).toBeCloseTo(hitZones.image.right, 1);
+  expect(hitZones.previous.height).toBeCloseTo(hitZones.image.height, 1);
+  expect(hitZones.next.height).toBeCloseTo(hitZones.image.height, 1);
+  expect(hitZones.previousCursor).toContain('%23fff');
+  expect(hitZones.nextCursor).toContain('%23fff');
   const secondImage = await selectedImage.getAttribute('src');
   await previousZone.click();
   await expect(selectedImage).toHaveAttribute('src', initialImage);
