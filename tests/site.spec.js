@@ -43,13 +43,33 @@ test('mobile menu matches live centered teal layout', async ({ page }, testInfo)
 
   const logoBox = await logo.boundingBox();
   expect(logoBox.y).toBeGreaterThanOrEqual(18);
+  expect(logoBox.x).toBeLessThanOrEqual(16);
   expect(logoBox.width).toBeGreaterThan(120);
   expect(logoBox.height / logoBox.width).toBeGreaterThan(0.9);
 
   await expect(toggle).toHaveCSS('color', /rgba?\(69,\s*190,\s*217/);
+  const toggleBox = await toggle.boundingBox();
+  expect(toggleBox.x + toggleBox.width).toBeGreaterThan(350);
+  const hamburger = await toggle.evaluate((button) => {
+    const before = getComputedStyle(button, '::before');
+    return {
+      borderTopWidth: before.borderTopWidth,
+      borderBottomWidth: before.borderBottomWidth,
+      backgroundImage: before.backgroundImage,
+    };
+  });
+  expect(hamburger.borderTopWidth).toBe('3px');
+  expect(hamburger.borderBottomWidth).toBe('3px');
+  expect(hamburger.backgroundImage).toContain('linear-gradient');
+
   await toggle.click();
   await expect(nav).toBeVisible();
+  await expect(nav).toHaveCSS('position', 'fixed');
+  await expect(nav).toHaveCSS('opacity', '1');
   await expect(nav).toHaveCSS('background-color', /rgba?\(69,\s*190,\s*217/);
+  const navBox = await nav.boundingBox();
+  expect(navBox.y).toBe(0);
+  expect(navBox.height).toBeGreaterThan(700);
 
   const navAlignment = await nav.locator('a, summary').evaluateAll((items) =>
     items.map((item) => ({
