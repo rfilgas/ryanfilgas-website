@@ -34,6 +34,35 @@ test('side menu matches desktop and mobile behavior', async ({ page }, testInfo)
   }
 });
 
+test('mobile menu matches live centered teal layout', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'mobile', 'mobile-only layout check');
+  await page.goto('/index.html');
+  const logo = page.locator('.logo img');
+  const toggle = page.locator('button.menu-toggle');
+  const nav = page.locator('nav.site-nav');
+
+  const logoBox = await logo.boundingBox();
+  expect(logoBox.y).toBeGreaterThanOrEqual(18);
+  expect(logoBox.width).toBeGreaterThan(120);
+  expect(logoBox.height / logoBox.width).toBeGreaterThan(0.9);
+
+  await expect(toggle).toHaveCSS('color', /rgba?\(69,\s*190,\s*217/);
+  await toggle.click();
+  await expect(nav).toBeVisible();
+  await expect(nav).toHaveCSS('background-color', /rgba?\(69,\s*190,\s*217/);
+
+  const navAlignment = await nav.locator('a, summary').evaluateAll((items) =>
+    items.map((item) => ({
+      textAlign: getComputedStyle(item).textAlign,
+      color: getComputedStyle(item).color,
+      display: getComputedStyle(item).display,
+    }))
+  );
+  expect(navAlignment.length).toBeGreaterThan(0);
+  expect(navAlignment.every((item) => item.textAlign === 'center' && item.display === 'block')).toBe(true);
+  expect(navAlignment.every((item) => item.color.includes('255, 255, 255'))).toBe(true);
+});
+
 test('art and work parents are disclosure controls only', async ({ page }) => {
   await page.goto('/connect/');
   await expect(page.locator('summary', { hasText: 'Art' })).toBeVisible();
