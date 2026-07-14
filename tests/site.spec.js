@@ -34,6 +34,19 @@ test('side menu matches desktop and mobile behavior', async ({ page }, testInfo)
   }
 });
 
+test('art and work parents are disclosure controls only', async ({ page }) => {
+  await page.goto('/connect/');
+  await expect(page.locator('summary', { hasText: 'Art' })).toBeVisible();
+  await expect(page.locator('summary', { hasText: 'Work' })).toBeVisible();
+  await expect(page.locator('summary a', { hasText: 'Art' })).toHaveCount(0);
+  await expect(page.locator('summary a', { hasText: 'Work' })).toHaveCount(0);
+
+  const artDetails = page.locator('nav.site-nav details').first();
+  await expect(artDetails).not.toHaveAttribute('open', '');
+  await page.locator('summary', { hasText: 'Art' }).click();
+  await expect(artDetails).toHaveAttribute('open', '');
+});
+
 test('index side menu links reach expected site pages', async ({ page, request }) => {
   await page.goto('/index.html');
   const navHrefs = await page.locator('nav.site-nav a').evaluateAll((links) =>
@@ -55,6 +68,8 @@ test('gallery selected photo stays in flow with number controls and thumbnail to
   const selectedPanel = page.locator('.gallery-selected');
   const selectedImage = page.locator('.gallery-selected-image img');
   const numbers = page.locator('.gallery-selected-numbers button');
+  const nextZone = page.locator('.gallery-selected-nav-zone-next');
+  const previousZone = page.locator('.gallery-selected-nav-zone-prev');
   const showThumbnails = page.locator('.gallery-thumbnails-toggle');
 
   await expect(firstPhoto).toBeVisible();
@@ -71,6 +86,14 @@ test('gallery selected photo stays in flow with number controls and thumbnail to
   await numbers.nth(1).click();
   await expect(numbers.nth(1)).toHaveAttribute('aria-current', 'page');
   await expect(selectedImage).not.toHaveAttribute('src', initialImage);
+
+  await expect(nextZone).toBeVisible();
+  await expect(previousZone).toBeVisible();
+  const secondImage = await selectedImage.getAttribute('src');
+  await previousZone.click();
+  await expect(selectedImage).toHaveAttribute('src', initialImage);
+  await nextZone.click();
+  await expect(selectedImage).toHaveAttribute('src', secondImage);
 
   await showThumbnails.click();
   await expect(selectedPanel).toBeHidden();
@@ -92,6 +115,22 @@ test('gallery selection preserves image aspect ratio and Insights tiles are unif
     images.map((image) => image.clientWidth / image.clientHeight)
   );
   expect(new Set(tileRatios.map((ratio) => ratio.toFixed(3))).size).toBe(1);
+});
+
+test('about me art uses uncropped split layout on desktop', async ({ page }) => {
+  await page.goto('/about-me-art/');
+  const media = page.locator('.about-art-page .content-page-split-media');
+  const body = page.locator('.about-art-page .content-page-split-body');
+  const widths = await Promise.all([media, body].map((section) => section.evaluate((node) => node.getBoundingClientRect().width)));
+  expect(widths[0] / (widths[0] + widths[1])).toBeGreaterThan(0.45);
+  expect(widths[0] / (widths[0] + widths[1])).toBeLessThan(0.55);
+
+  const image = page.locator('.about-art-page .content-hero');
+  const ratios = await image.evaluate((img) => ({
+    natural: img.naturalWidth / img.naturalHeight,
+    rendered: img.clientWidth / img.clientHeight,
+  }));
+  expect(ratios.rendered).toBeCloseTo(ratios.natural, 2);
 });
 
 test('legacy redirect pages land on current targets', async ({ page }) => {
