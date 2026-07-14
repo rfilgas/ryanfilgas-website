@@ -54,7 +54,13 @@ LEGACY_TAG_ROUTES = {
     "blog?tag=Carson Block.html": "Carson+Block",
     "blog?tag=Frozen.html": "Frozen",
 }
-PAGINATED_INDEX_ROUTE = "blog/index.html?offset=1487147475880.html"
+PAGINATED_INDEX_ROUTE = "blog/page-2.html"
+LEGACY_PAGINATED_INDEX_ROUTE = "blog/index.html?offset=1487147475880.html"
+POSTS_PER_PAGE = 5
+POST_THUMBNAIL_FALLBACKS = {
+    "New Directions - Part 2": "assets/blog/15A0199-grey-building-blue-window-sac-palm-trees.jpg",
+    "Portland Marketing - Week Two - Disorganized thoughts from disorganized marketing": "assets/blog/skyline.jpg",
+}
 
 VOID_TAGS = {"br", "img", "hr", "input", "meta", "link"}
 INLINE_ALLOWED = {"p", "br", "ol", "ul", "li", "strong", "em", "b", "i", "blockquote", "a"}
@@ -112,6 +118,13 @@ def alt_from_filename(name: str) -> str:
     stem = Path(name).stem
     stem = re.sub(r"[_\-]+", " ", stem).strip()
     return stem
+
+
+def fallback_thumbnail(title: str) -> str | None:
+    path = POST_THUMBNAIL_FALLBACKS.get(title)
+    if path and (ROOT / path).is_file():
+        return path
+    return None
 
 
 class BodyParser(HTMLParser):
@@ -284,6 +297,13 @@ def parse_article(path: str) -> Article:
         cut = excerpt.rfind(" ", 0, 217)
         excerpt = excerpt[: cut if cut > 0 else 217].rstrip() + "\u2026"
 
+    if thumbnail is None:
+        fallback = fallback_thumbnail(title)
+        if fallback:
+            thumbnail = fallback
+            if not any(kind == "images" for kind, _ in blocks):
+                blocks.insert(0, ("images", [(fallback, alt_from_filename(fallback))]))
+
     return Article(
         path=path,
         title=title,
@@ -321,6 +341,8 @@ def parse_native_article(path: str, text: str) -> Article:
     thumbnail = None
     if image_match:
         thumbnail = posixpath.normpath(posixpath.join(posixpath.dirname(path), image_match.group(1)))
+    if thumbnail is None:
+        thumbnail = fallback_thumbnail(title)
 
     excerpt = ""
     first_p = re.search(r"<p(?:\s[^>]*)?>(.*?)</p>", body, re.S)
@@ -463,16 +485,35 @@ def render_tag_cloud(all_tags: list[tuple[str, str]], from_dir: str) -> str:
 
 
 def render_index_page(
-    articles: list[Article], all_tags: list[tuple[str, str]], title: str, from_dir: str = "."
+    articles: list[Article],
+    all_tags: list[tuple[str, str]],
+    title: str,
+    from_dir: str = ".",
+    previous_href: str | None = None,
+    next_href: str | None = None,
 ) -> str:
     intro = (
         "<p>Notes on photography, art, and the occasional software engineering detour "
         "\u2014 a running log from Ryan Filgas.</p>"
     )
+    pagination = ""
+    if previous_href or next_href:
+        links = []
+        if previous_href:
+            links.append(f'<a href="{rel(from_dir, previous_href)}">Previous</a>')
+        if next_href:
+            links.append(f'<a href="{rel(from_dir, next_href)}">Next</a>')
+        links_html = "\n      ".join(links)
+        pagination = f"""    <nav class="post-pagination" aria-label="Insights pages">
+      {links_html}
+    </nav>
+"""
+
     main = f"""  <main class="content-page post-index">
     <h1>{escape(title)}</h1>
     {intro}
 {render_post_list(articles, from_dir)}
+{pagination}
 {render_tag_cloud(all_tags, from_dir)}
   </main>"""
     return page_shell(title, "Insights \u2013 photography, art, and software engineering notes by Ryan Filgas", from_dir, True, main)
@@ -507,14 +548,21 @@ def main():
 
     all_tags = [(tag_file, name) for tag_file, (name, _) in tag_registry.items()]
 
-    # Insights index routes share the same generated listing.  The offset
-    # filename is a crawler artifact; blog.html is its GitHub Pages-safe route.
-    index_html = render_index_page(articles, all_tags, "Insights")
+    # Insights index routes share the same generated listing.  Use a static
+    # browser/server-safe second page route instead of the mirrored query
+    # artifact filename.
+    first_page = articles[:POSTS_PER_PAGE]
+    second_page = articles[POSTS_PER_PAGE:]
+
+    index_html = render_index_page(first_page, all_tags, "Insights", ".", None, PAGINATED_INDEX_ROUTE if second_page else None)
     (ROOT / "blog-insights.html").write_text(index_html, encoding="utf-8")
-    blog_html = render_index_page(articles, all_tags, "Blog")
+    blog_html = render_index_page(first_page, all_tags, "Blog", ".", None, PAGINATED_INDEX_ROUTE if second_page else None)
     (ROOT / "blog.html").write_text(blog_html, encoding="utf-8")
-    offset_html = render_index_page(articles, all_tags, "Blog", "blog")
+    offset_html = render_index_page(second_page, all_tags, "Blog", "blog", "blog-insights.html", None)
     (ROOT / PAGINATED_INDEX_ROUTE).write_text(offset_html, encoding="utf-8")
+    legacy_offset_path = ROOT / LEGACY_PAGINATED_INDEX_ROUTE
+    if legacy_offset_path.exists() and LEGACY_PAGINATED_INDEX_ROUTE != PAGINATED_INDEX_ROUTE:
+        legacy_offset_path.unlink()
 
     # Tag list routes.
     for tag_file, (name, matching) in tag_registry.items():
@@ -549,7 +597,7 @@ def main():
 
     print(f"Articles rewritten: {len(articles)}")
     print(f"Tag pages rewritten: {len(tag_registry)}")
-    print(f"Index pages rewritten: 3 (blog-insights.html, blog.html, mirrored offset list)")
+    print(f"Index pages rewritten: 3 (blog-insights.html, blog.html, page-2 route)")
     print(f"Legacy tag routes rewritten: {len(LEGACY_TAG_ROUTES)}")
 
 

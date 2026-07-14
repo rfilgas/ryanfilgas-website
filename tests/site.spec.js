@@ -47,31 +47,34 @@ test('index side menu links reach expected site pages', async ({ page, request }
   }
 });
 
-test('gallery lightbox opens, advances, shows numbers, and closes from keyboard', async ({ page }) => {
+test('gallery selected photo stays in flow with number controls and thumbnail toggle', async ({ page }) => {
   await page.goto('/index.html');
 
   const firstPhoto = page.locator('.gallery-columns .photo').first();
-  const viewer = page.locator('.viewer');
-  const viewerImage = page.locator('.viewer-image img');
-  const numbers = page.locator('.viewer-numbers button');
+  const galleryColumns = page.locator('.gallery-columns');
+  const selectedPanel = page.locator('.gallery-selected');
+  const selectedImage = page.locator('.gallery-selected-image img');
+  const numbers = page.locator('.gallery-selected-numbers button');
+  const showThumbnails = page.locator('.gallery-thumbnails-toggle');
 
   await expect(firstPhoto).toBeVisible();
+  await expect(selectedPanel).toBeHidden();
   await firstPhoto.click();
-  await expect(viewer).toHaveClass(/is-open/);
-  await expect(viewer).toBeVisible();
-  await expect(page).toHaveURL(/#photo-1$/);
-  await expect(numbers.first()).toBeVisible();
-  await expect(numbers.first()).toHaveAttribute('aria-current', 'true');
-
-  const initialImage = await viewerImage.getAttribute('src');
-  await page.keyboard.press('ArrowRight');
-  await expect(page).toHaveURL(/#photo-2$/);
-  await expect(numbers.nth(1)).toHaveAttribute('aria-current', 'true');
-  await expect(viewerImage).not.toHaveAttribute('src', initialImage);
-
-  await page.keyboard.press('Escape');
-  await expect(viewer).toBeHidden();
+  await expect(selectedPanel).toBeVisible();
+  await expect(galleryColumns).toBeHidden();
   await expect(page).not.toHaveURL(/#photo-/);
+  await expect(selectedImage).toBeVisible();
+  await expect(numbers.first()).toBeVisible();
+  await expect(numbers.first()).toHaveAttribute('aria-current', 'page');
+
+  const initialImage = await selectedImage.getAttribute('src');
+  await numbers.nth(1).click();
+  await expect(numbers.nth(1)).toHaveAttribute('aria-current', 'page');
+  await expect(selectedImage).not.toHaveAttribute('src', initialImage);
+
+  await showThumbnails.click();
+  await expect(selectedPanel).toBeHidden();
+  await expect(galleryColumns).toBeVisible();
 });
 
 test('legacy redirect pages land on current targets', async ({ page }) => {
@@ -99,6 +102,21 @@ test('blog index links to articles that render with shared navigation', async ({
   await expect(page).toHaveURL(/\/insights\/.+\.html$/);
   await expect(page.locator('nav.site-nav')).toBeAttached();
   await expect(page.locator('main.post h1')).toBeVisible();
+});
+
+test('blog pagination next link loads browser-safe page 2', async ({ page, request }) => {
+  await page.goto('/blog-insights.html');
+  const nextLink = page.locator('.post-pagination a', { hasText: 'Next' });
+  await expect(nextLink).toHaveAttribute('href', 'blog/page-2.html');
+
+  await nextLink.click();
+  await expect(page).toHaveURL(/\/blog\/page-2\.html$/);
+  await expect(page.locator('main.post-index .post-list h2 a').first()).toHaveText('New Directions');
+
+  const response = await request.get('/blog/page-2.html');
+  expect(response.status()).toBe(200);
+  const html = await response.text();
+  expect(html).toContain('New Directions');
 });
 
 test('index and blog article avoid Squarespace and Typekit network requests', async ({ page }) => {
