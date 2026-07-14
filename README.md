@@ -3,8 +3,8 @@
 **Live site:** https://www.ryanfilgas.com — hosted: https://rfilgas.github.io/ryanfilgas-website/ — source: https://github.com/rfilgas/ryanfilgas-website
 
 A hand-maintained static site. No framework, no build dependencies — just Python 3
-generating plain HTML from small, shared components. Open the generated `.html`
-files directly or serve the folder with any static file server.
+generating plain HTML from small, shared components. Open the generated page
+folders directly or serve the folder with any static file server.
 
 ## Quick start
 
@@ -15,7 +15,7 @@ python3 generate_insights.py  # blog listing, articles, tag pages
 
 # Preview locally:
 python3 -m http.server 8137
-# then open http://localhost:8137/index.html
+# then open http://localhost:8137/
 ```
 
 Both generators are idempotent — run them any time; they overwrite the generated
@@ -36,7 +36,7 @@ assets/
   <slug>/               # one folder per gallery page, holds that page's ordered images
   content/              # figures for the about/connect pages
   blog/                 # blog post images (populated by generate_insights.py)
-*.html, insights/**     # generated output — do not edit by hand
+index.html, <slug>/, insights/**  # generated output — do not edit by hand
 README.md
 ```
 
@@ -78,7 +78,7 @@ To reorder, just renumber the filename prefixes.
    "my-gallery": ("Short Title", "Gallery Heading", "my-gallery", False),
    #  output slug   nav/title       aria-label / on-page heading   folder   is_home
    ```
-3. Add it to the side menu in `components.py` — put a `("Label", "my-gallery.html")`
+3. Add it to the side menu in `components.py` — put a `("Label", "my-gallery/")`
    tuple in `ART_CHILDREN` or `WORK_CHILDREN` (or `MAIN_LINKS` for a top-level item).
 4. Run `python3 build.py`.
 
@@ -95,7 +95,7 @@ To reorder, just renumber the filename prefixes.
 
 ### Add a redirect
 
-Add an entry to `REDIRECTS` in `content.py` (`"old-url": "target.html"`) and run
+Add an entry to `REDIRECTS` in `content.py` (`"old-url": "target/"`) and run
 `python3 build.py`.
 
 ### Add a blog post

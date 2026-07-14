@@ -19,6 +19,8 @@
   let selected = -1;
   let columns = 0;
 
+  const reveal = (image) => image.decode().catch(() => {}).finally(() => image.classList.add('is-loaded'));
+
   const renderSelection = (index) => {
     selected = ((index % photos.length) + photos.length) % photos.length;
     const current = photos[selected].querySelector('img');
@@ -61,6 +63,7 @@
   };
 
   photos.forEach((photo, i) => {
+    reveal(photo.querySelector('img'));
     photo.addEventListener('click', () => renderSelection(i));
     const button = document.createElement('button');
     button.type = 'button';
