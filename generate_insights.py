@@ -26,7 +26,13 @@ from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import urlparse
 
+import components
+
 ROOT = Path(__file__).resolve().parent
+
+# The original Squarespace mirror lives in this commit; sourcing from it keeps
+# the generator reproducible even after the mirror dirs are removed from disk.
+MIRROR = "b20f73c"
 
 ARTICLE_PATHS = [
     "insights/2023/11/11/2023.html",
@@ -56,7 +62,7 @@ INLINE_ALLOWED = {"p", "br", "ol", "ul", "li", "strong", "em", "b", "i", "blockq
 
 def git_show(path: str) -> str:
     result = subprocess.run(
-        ["git", "show", f"HEAD:{path}"],
+        ["git", "show", f"{MIRROR}:{path}"],
         cwd=ROOT,
         capture_output=True,
         text=True,
@@ -65,17 +71,32 @@ def git_show(path: str) -> str:
     return result.stdout
 
 
+def git_show_bytes(path: str) -> bytes:
+    result = subprocess.run(
+        ["git", "show", f"{MIRROR}:{path}"],
+        cwd=ROOT,
+        capture_output=True,
+        check=True,
+    )
+    return result.stdout
+
+
 def local_image_path(url: str) -> str:
-    """Copy a mirrored source image to the native asset tree."""
+    """Copy a mirrored source image into assets/blog/. Falls back to reading the
+    image bytes from the mirror commit when the working-tree copy is gone."""
     parsed = urlparse(url)
     source = Path(parsed.netloc + parsed.path)
-    if not (ROOT / source).is_file():
-        raise FileNotFoundError(f"missing local mirror for image: {url}")
     suffix = source.suffix.lower() or ".jpg"
     destination = Path("assets/blog") / f"{hashlib.sha256(url.encode()).hexdigest()[:16]}{suffix}"
     destination.parent.mkdir(parents=True, exist_ok=True)
     if not (ROOT / destination).exists():
-        shutil.copy2(ROOT / source, ROOT / destination)
+        if (ROOT / source).is_file():
+            shutil.copy2(ROOT / source, ROOT / destination)
+        else:
+            try:
+                (ROOT / destination).write_bytes(git_show_bytes(source.as_posix()))
+            except subprocess.CalledProcessError:
+                raise FileNotFoundError(f"missing mirror image: {url}")
     return destination.as_posix()
 
 
@@ -332,63 +353,23 @@ def nav_link(label, href, current):
     return f'<a href="{href}"{attribute}>{label}</a>'
 
 
-def header(from_dir: str, insights_current: bool) -> str:
-    home = rel(from_dir, "index.html")
-    art_links = [
-        nav_link("Narrative Portraiture", rel(from_dir, "index.html"), False),
-        nav_link("Landscape", rel(from_dir, "landscape.html"), False),
-        nav_link("Aerial Silks", rel(from_dir, "arial-silks.html"), False),
-        nav_link("Free Flight", rel(from_dir, "free-flight.html"), False),
-        nav_link("Digital Art", rel(from_dir, "digital-art.html"), False),
-    ]
-    work_links = [
-        nav_link("Happy Hour", rel(from_dir, "editorial-happy-hour.html"), False),
-        nav_link("Arch-Interiors", rel(from_dir, "architecture-interior.html"), False),
-        nav_link("Arch-Exteriors", rel(from_dir, "architecture-exterior.html"), False),
-    ]
-    return f"""  <header class="site-header">
-    <a class="logo" href="{home}" aria-label="Ryan Filgas home"><img src="{rel(from_dir, 'assets/photos/01.jpg')}" alt="Ryan Filgas"></a>
-    <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="site-navigation">Menu</button>
-    <nav class="site-nav" id="site-navigation" aria-label="Main navigation">
-      <ul>
-        <li><details open><summary>Art</summary><ul><li>{'</li><li>'.join(art_links)}</li></ul></details></li>
-        <li><details open><summary>Work</summary><ul><li>{'</li><li>'.join(work_links)}</li></ul></details></li>
-        <li>{nav_link("About Me (Art)", rel(from_dir, "about-me-art.html"), False)}</li>
-        <li>{nav_link("About Me (SWE)", rel(from_dir, "about-software-engineering.html"), False)}</li>
-        <li>{nav_link("Connect", rel(from_dir, "connect.html"), False)}</li>
-        <li>{nav_link("Insights", rel(from_dir, "blog-insights.html"), insights_current)}</li>
-      </ul>
-    </nav>
-    <footer class="site-footer"><a href="mailto:ryan@ryanfilgas.com">Email</a><a href="https://www.linkedin.com/pub/ryan-filgas/7a/650/725">LinkedIn</a><a href="https://github.com/rfilgas">GitHub</a></footer>
-  </header>"""
+def _prefix(from_dir: str) -> str:
+    if from_dir in ("", "."):
+        return ""
+    return posixpath.relpath(".", from_dir) + "/"
 
 
-MENU_SCRIPT = """  <script>
-    document.querySelector('.menu-toggle').addEventListener('click', function() {
-      var open = document.querySelector('.site-nav').classList.toggle('is-open');
-      this.setAttribute('aria-expanded', String(open));
-    });
-  </script>"""
+MENU_SCRIPT = ""  # menu toggle now handled by assets/gallery.js
 
 
 def page_shell(title: str, description: str, from_dir: str, insights_current: bool, main_html: str) -> str:
-    css = rel(from_dir, "assets/native.css")
-    return f"""<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="{escape(description, quote=True)}">
-  <title>{escape(title)} | Ryan Filgas</title>
-  <link rel="stylesheet" href="{css}">
-</head>
-<body>
-{header(from_dir, insights_current)}
-{main_html}
-{MENU_SCRIPT}
-</body>
-</html>
-"""
+    return components.document(
+        title=title,
+        description=description,
+        body=main_html,
+        active="blog-insights.html" if insights_current else "",
+        prefix=_prefix(from_dir),
+    )
 
 
 def render_block_html(block_html: str) -> str:
