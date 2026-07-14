@@ -49,12 +49,14 @@ def _link(label, target, active, prefix):
 
 
 def _submenu(label, parent_target, children, active, prefix):
+    is_open = active == parent_target or any(target == active for _, target in children)
+    open_attr = " open" if is_open else ""
     items = "".join(
         f"<li>{_link(text, target, active, prefix)}</li>" for text, target in children
     )
     parent = _link(label, parent_target, active, prefix)
     return (
-        f"<li><details open><summary>{parent}</summary>"
+        f"<li><details{open_attr}><summary>{parent}</summary>"
         f"<ul>{items}</ul></details></li>"
     )
 
@@ -121,6 +123,7 @@ def document(*, title, description, body, active="", prefix="", title_suffix=Tru
 <body>
 {header(active, prefix)}
 {body}
+  <div class="site-copyright">© RYAN FILGAS. ALL RIGHTS RESERVED</div>
 </body>
 </html>
 """
