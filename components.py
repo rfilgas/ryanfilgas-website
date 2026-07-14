@@ -10,8 +10,8 @@ and nav href is prefixed with it, so the same nav works at any depth.
 from html import escape
 
 # ── Navigation: single source of truth for the side menu ──────────────
-# Parent labels ("Art", "Work") are links to redirect routes (`art.html`,
-# `work.html`) and expand to their children.
+# Parent labels ("Art", "Work") are links to redirect routes (`art/`,
+# `work/`) and expand to their children.
 ART_CHILDREN = [
     ("Narrative Portraiture", "index.html"),
     ("Landscape", "landscape/"),
@@ -84,8 +84,8 @@ def _social_icon(kind):
 
 def header(active="", prefix=""):
     """Site header + fixed side menu, identical on every page."""
-    art = _submenu("Art", "art.html", ART_CHILDREN, active, prefix)
-    work = _submenu("Work", "work.html", WORK_CHILDREN, active, prefix)
+    art = _submenu("Art", "art/", ART_CHILDREN, active, prefix)
+    work = _submenu("Work", "work/", WORK_CHILDREN, active, prefix)
     main = "".join(f"<li>{_link(t, h, active, prefix)}</li>" for t, h in MAIN_LINKS)
     social = "".join(
         f'<a class="social-link" href="{_href(h, prefix)}" aria-label="{escape(t, quote=True)}"><span class="sr-only">{escape(t)}</span>{_social_icon(icon)}</a>'
