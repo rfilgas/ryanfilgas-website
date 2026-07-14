@@ -89,6 +89,10 @@ test('gallery selected photo stays in flow with number controls and thumbnail to
 
   await expect(nextZone).toBeVisible();
   await expect(previousZone).toBeVisible();
+  await page.waitForFunction(() => {
+    const next = document.querySelector('[data-action="next-photo"]').getBoundingClientRect();
+    return Math.abs(next.right - window.innerWidth) < 2;
+  });
   const hitZones = await page.locator('.gallery-selected-image').evaluate((figure) => {
     const image = figure.querySelector('img').getBoundingClientRect();
     const previous = figure.querySelector('[data-action="previous-photo"]').getBoundingClientRect();
@@ -97,12 +101,15 @@ test('gallery selected photo stays in flow with number controls and thumbnail to
       image,
       previous,
       next,
+      viewportWidth: window.innerWidth,
       previousCursor: getComputedStyle(figure.querySelector('[data-action="previous-photo"]')).cursor,
       nextCursor: getComputedStyle(figure.querySelector('[data-action="next-photo"]')).cursor,
     };
   });
   expect(hitZones.previous.x).toBeCloseTo(hitZones.image.x, 1);
-  expect(hitZones.next.right).toBeCloseTo(hitZones.image.right, 1);
+  expect(hitZones.previous.right).toBeCloseTo(hitZones.image.x + hitZones.image.width / 2, 1);
+  expect(hitZones.next.x).toBeCloseTo(hitZones.image.x + hitZones.image.width / 2, 1);
+  expect(hitZones.next.right).toBeCloseTo(hitZones.viewportWidth, 1);
   expect(hitZones.previous.height).toBeCloseTo(hitZones.image.height, 1);
   expect(hitZones.next.height).toBeCloseTo(hitZones.image.height, 1);
   expect(hitZones.previousCursor).toContain('%23fff');
@@ -145,6 +152,12 @@ test('gallery selected photo stays in flow with number controls and thumbnail to
   await expect(page.locator('.gallery-selected-image')).toHaveAttribute('data-cursor-tone', 'light');
   await expect(previousZone).toHaveCSS('cursor', /%23555/);
   const secondImage = await selectedImage.getAttribute('src');
+  await nextZone.evaluate((zone) => {
+    zone.style.cursor = 'url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2218%22 height=%2218%22 viewBox=%220 0 18 18%22%3E%3Cpath d=%22M6.5 3 12.5 9l-6 6%22 fill=%22none%22 stroke=%22%23fff%22 stroke-width=%222.5%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22/%3E%3C/svg%3E") 9 9, e-resize';
+  });
+  await nextZone.click();
+  await expect(nextZone).toHaveCSS('cursor', /M6\.5.*%23fff|M6\.5.*%2523fff/);
+  await previousZone.click();
   await previousZone.click();
   await expect(selectedImage).toHaveAttribute('src', initialImage);
   await nextZone.click();
