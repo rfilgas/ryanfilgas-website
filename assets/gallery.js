@@ -23,6 +23,7 @@
   const cursorContext = cursorSample.getContext('2d', { willReadFrequently: true });
   let selected = -1;
   let columns = 0;
+  let cursorPoint = null;
   cursorSample.width = 1;
   cursorSample.height = 1;
   const cursor = (path, color, fallback) =>
@@ -65,9 +66,12 @@
     const current = photos[selected].querySelector('img');
     selectedImage.src = current.src;
     selectedImage.alt = current.alt;
-    selectedFigure.dataset.cursorTone = 'dark';
+    if (!cursorPoint) selectedFigure.dataset.cursorTone = 'dark';
     sizeSelection(current);
-    selectedImage.decode().catch(() => {}).finally(() => sizeSelection());
+    selectedImage.decode().catch(() => {}).finally(() => {
+      sizeSelection();
+      if (cursorPoint) requestAnimationFrame(() => updateCursorTone(cursorPoint));
+    });
     photos.forEach((photo, i) => photo.classList.toggle('is-selected', i === selected));
     numbers.querySelectorAll('button').forEach((button, i) => {
       button.setAttribute('aria-current', i === selected ? 'page' : 'false');
@@ -81,17 +85,27 @@
     const rect = selectedImage.getBoundingClientRect();
     const x = Math.min(selectedImage.naturalWidth - 1, Math.max(0, Math.floor(((event.clientX - rect.left) / rect.width) * selectedImage.naturalWidth)));
     const y = Math.min(selectedImage.naturalHeight - 1, Math.max(0, Math.floor(((event.clientY - rect.top) / rect.height) * selectedImage.naturalHeight)));
+    const direction = event.currentTarget === previousZone ? 'previous' : 'next';
     try {
       cursorContext.drawImage(selectedImage, x, y, 1, 1, 0, 0, 1, 1);
       const [r, g, b] = cursorContext.getImageData(0, 0, 1, 1).data;
       const luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
       const tone = luminance >= 128 ? 'light' : 'dark';
       selectedFigure.dataset.cursorTone = tone;
-      event.currentTarget.style.cursor = arrowCursors[event.currentTarget === previousZone ? 'previous' : 'next'][tone];
+      event.currentTarget.style.cursor = arrowCursors[direction][tone];
     } catch {
       selectedFigure.dataset.cursorTone = 'dark';
-      event.currentTarget.style.cursor = arrowCursors[event.currentTarget === previousZone ? 'previous' : 'next'].dark;
+      event.currentTarget.style.cursor = arrowCursors[direction].dark;
     }
+  };
+
+  const rememberCursor = (event) => {
+    cursorPoint = {
+      clientX: event.clientX,
+      clientY: event.clientY,
+      currentTarget: event.currentTarget,
+    };
+    updateCursorTone(cursorPoint);
   };
 
   const showThumbnails = () => {
@@ -135,8 +149,8 @@
   thumbnails.addEventListener('click', showThumbnails);
   previousZone.addEventListener('click', () => renderSelection(selected - 1));
   nextZone.addEventListener('click', () => renderSelection(selected + 1));
-  previousZone.addEventListener('pointermove', updateCursorTone);
-  nextZone.addEventListener('pointermove', updateCursorTone);
+  previousZone.addEventListener('pointermove', rememberCursor);
+  nextZone.addEventListener('pointermove', rememberCursor);
   window.addEventListener('keydown', (event) => {
     if (selectedPanel.hidden) return;
     if (selected < 0) return;
