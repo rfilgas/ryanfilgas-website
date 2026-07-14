@@ -47,12 +47,17 @@
     if (window.matchMedia('(max-width: 699px)').matches) {
       selectedFigure.style.width = '';
       selectedFigure.style.height = '';
+      selectedFigure.style.removeProperty('--selected-next-zone-width');
       return;
     }
     const ratio = image.naturalWidth / image.naturalHeight;
     const width = Math.min(window.innerWidth - 233, (window.innerHeight - 46) * ratio);
     selectedFigure.style.width = `${Math.max(1, width)}px`;
     selectedFigure.style.height = `${Math.max(1, width / ratio)}px`;
+    requestAnimationFrame(() => {
+      const rect = selectedFigure.getBoundingClientRect();
+      selectedFigure.style.setProperty('--selected-next-zone-width', `${Math.max(rect.width / 2, window.innerWidth - (rect.left + rect.width / 2))}px`);
+    });
   };
 
   const renderSelection = (index) => {
@@ -61,8 +66,6 @@
     selectedImage.src = current.src;
     selectedImage.alt = current.alt;
     selectedFigure.dataset.cursorTone = 'dark';
-    previousZone.style.cursor = '';
-    nextZone.style.cursor = '';
     sizeSelection(current);
     selectedImage.decode().catch(() => {}).finally(() => sizeSelection());
     photos.forEach((photo, i) => photo.classList.toggle('is-selected', i === selected));
