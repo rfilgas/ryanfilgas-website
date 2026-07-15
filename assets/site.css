@@ -333,7 +333,7 @@ a:focus-visible {
 
 @media (max-width: 699px) {
   .site-header {
-    position: sticky;
+    position: absolute;
     top: 0;
     z-index: 10;
     width: 100%;
@@ -367,16 +367,41 @@ a:focus-visible {
     font-size: 0;
     cursor: pointer;
   }
-  .menu-toggle::before {
+
+  .menu-toggle::before,
+  .menu-toggle::after,
+  .menu-toggle span {
     content: "";
-    display: block;
+    position: absolute;
+    left: 3px;
     width: 28px;
-    height: 18px;
-    margin: 5px 3px;
-    border-top: 3px solid currentColor;
-    border-bottom: 3px solid currentColor;
-    background: linear-gradient(currentColor, currentColor) center / 100% 3px no-repeat;
+    height: 3px;
+    background: currentColor;
+    transition: top .25s ease, transform .25s ease, opacity .25s ease;
   }
+
+  .menu-toggle::before { top: 5px; }
+  .menu-toggle span { top: 13px; }
+  .menu-toggle::after { top: 21px; }
+
+  .site-header:has(.site-nav.is-open) .menu-toggle {
+    color: #fff;
+  }
+
+  .site-header:has(.site-nav.is-open) .menu-toggle::before {
+    top: 13px;
+    transform: rotate(45deg);
+  }
+
+  .site-header:has(.site-nav.is-open) .menu-toggle span {
+    opacity: 0;
+  }
+
+  .site-header:has(.site-nav.is-open) .menu-toggle::after {
+    top: 13px;
+    transform: rotate(-45deg);
+  }
+
   .site-nav {
     position: fixed;
     z-index: 4;
@@ -385,7 +410,7 @@ a:focus-visible {
     bottom: 0;
     left: 0;
     display: none;
-    padding: 118px 16px 24px;
+    padding: 80px 16px 24px;
     border: 0;
     background: rgb(69, 190, 217);
     text-align: center;
@@ -411,9 +436,9 @@ a:focus-visible {
 
   .gallery {
     margin: 0 auto;
-    max-width: 390px;
+    /* max-width: 390px; */
     min-height: auto;
-    padding: 16px 20px 24px;
+    padding: 8px 10px 12px;
   }
   .gallery-selected {
     max-width: 100%;
