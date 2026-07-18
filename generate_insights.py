@@ -8,6 +8,7 @@ shared site shell. No git-history lookups are used.
 
 from __future__ import annotations
 
+import json
 import posixpath
 import re
 from dataclasses import dataclass
@@ -18,6 +19,9 @@ from urllib.parse import urlparse
 import components
 
 ROOT = Path(__file__).resolve().parent
+PUBLISH_MAP_PATH = ROOT / "content" / "posts" / ".publish-map.json"
+PUBLISH_STATE_PATH = ROOT / "content" / "posts" / ".publish-map-state.json"
+SOURCE_MARKER_PATTERN = re.compile(r"<!--\s*source-post:\s*(.*?)\s*-->", re.S)
 
 PAGINATED_INDEX_ROUTE = "blog/page-2.html"
 LEGACY_PAGINATED_INDEX_ROUTE = "blog/index.html?offset=1487147475880.html"
@@ -62,6 +66,7 @@ class Article:
     blocks: list
     thumbnail: str | None
     excerpt: str
+    source_marker: str | None
 
     @property
     def dir(self) -> str:
@@ -79,6 +84,9 @@ def parse_article(path: str) -> Article:
 
 def parse_native_article(path: str, text: str) -> Article:
     """Read a previously generated local article and normalize it."""
+    source_marker_match = SOURCE_MARKER_PATTERN.search(text)
+    source_marker = source_marker_match.group(1).strip() if source_marker_match else None
+
     title_match = re.search(r"<h1>(.*?)</h1>", text, re.S)
     title = unescape(re.sub(r"<[^>]+>", "", title_match.group(1)).strip()) if title_match else path
 
@@ -122,7 +130,56 @@ def parse_native_article(path: str, text: str) -> Article:
         blocks=[("html", body.strip())] if body.strip() else [],
         thumbnail=thumbnail,
         excerpt=excerpt,
+        source_marker=source_marker,
     )
+
+
+def load_publish_map(path: Path) -> dict[str, str]:
+    if not path.is_file():
+        return {}
+    parsed = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(parsed, dict):
+        raise ValueError(f"Invalid publish map format: {path}")
+    return {str(k): str(v) for k, v in parsed.items()}
+
+
+def save_publish_state(outputs: set[str]) -> None:
+    payload = {"outputs": sorted(outputs)}
+    PUBLISH_STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
+    PUBLISH_STATE_PATH.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+
+def load_previous_outputs() -> set[str]:
+    if not PUBLISH_STATE_PATH.is_file():
+        return set()
+    parsed = json.loads(PUBLISH_STATE_PATH.read_text(encoding="utf-8"))
+    if not isinstance(parsed, dict):
+        return set()
+    outputs = parsed.get("outputs", [])
+    if not isinstance(outputs, list):
+        return set()
+    return {str(item) for item in outputs}
+
+
+def is_managed_article_output(path: str) -> bool:
+    return bool(re.fullmatch(r"insights/\d+/\d+/\d+/[^/]+\.html", path))
+
+
+def prune_removed_mapped_outputs() -> list[str]:
+    current_map = load_publish_map(PUBLISH_MAP_PATH)
+    current_outputs = {output for output in current_map.values() if is_managed_article_output(output)}
+    previous_outputs = {output for output in load_previous_outputs() if is_managed_article_output(output)}
+    removed_outputs = sorted(previous_outputs - current_outputs)
+
+    deleted: list[str] = []
+    for rel_path in removed_outputs:
+        abs_path = ROOT / rel_path
+        if abs_path.is_file():
+            abs_path.unlink()
+            deleted.append(rel_path)
+
+    save_publish_state(current_outputs)
+    return deleted
 
 
 def rel(from_dir: str, target: str) -> str:
@@ -174,7 +231,10 @@ def render_article_page(article: Article) -> str:
     from_dir = article.dir
     body = render_article_body(article, from_dir)
     tags_line = render_tags_line(article, from_dir)
-    main = f"""  <main class="content-page post">
+    source_marker = ""
+    if article.source_marker:
+        source_marker = f"  <!-- source-post: {escape(article.source_marker)} -->\n"
+    main = f"""{source_marker}  <main class="content-page post">
     <p class="post-meta"><time datetime="{escape(article.date_iso, quote=True)}">{escape(article.date_display)}</time></p>
     <h1>{escape(article.title)}</h1>
 {tags_line}{body}
@@ -259,6 +319,8 @@ def render_tag_page(tag_name: str, matching: list[Article], from_dir: str) -> st
 
 
 def main() -> None:
+    removed_paths = prune_removed_mapped_outputs()
+
     article_paths = discover_article_paths()
     if not article_paths:
         raise ValueError("No local insights article pages found")
@@ -297,6 +359,12 @@ def main() -> None:
         page = render_tag_page(name, matching, "insights/tag")
         out_path.write_text(page, encoding="utf-8")
 
+    tag_dir = ROOT / "insights" / "tag"
+    active_tag_files = set(tag_registry.keys())
+    for existing_tag_page in tag_dir.glob("*.html"):
+        if existing_tag_page.name not in active_tag_files:
+            existing_tag_page.unlink()
+
     forbidden = ("typekit", "google fonts", "cdn.jsdelivr")
     generated_paths = (
         [ROOT / a.path for a in articles]
@@ -316,6 +384,8 @@ def main() -> None:
             raise ValueError(f"{path}: forbidden remote reference present")
 
     print(f"Articles rewritten: {len(articles)}")
+    if removed_paths:
+        print(f"Articles removed from publish map: {len(removed_paths)}")
     print(f"Tag pages rewritten: {len(tag_registry)}")
     print("Index pages rewritten: 3 (insights/, blog/, page-2 route)")
 

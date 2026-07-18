@@ -276,7 +276,7 @@ test('connect page exposes mailto link and no contact form', async ({ page }) =>
 
 test('blog index links to articles that render with shared navigation', async ({ page }) => {
   await page.goto('/insights/');
-  const articleLink = page.locator('.post-list .post-gallery-link[href^="2023/"]').first();
+  const articleLink = page.locator('.post-list .post-gallery-link').first();
   await expect(articleLink).toBeVisible();
 
   await articleLink.click();

@@ -100,10 +100,70 @@ Add an entry to `REDIRECTS` in `content.py` (`"old-url": "target/"`) and run
 
 ### Add a blog post
 
-Blog articles are sourced from the archived content in the `generate_insights.py`
-registry (`ARTICLE_PATHS`). To add a new post, add its body to that pipeline and
-run `python3 generate_insights.py`. Post images are copied into `assets/blog/`
-automatically.
+New posts are authored as Markdown source files and published with one command.
+
+1. Duplicate the sample source template:
+   `content/posts/sample-new-post.md`
+2. Edit frontmatter and body:
+   - `title` is required
+   - `date` is optional (`YYYY-MM-DD`, defaults to today)
+   - `tags` is optional (comma-separated)
+   - write your text as normal paragraphs
+   - place photos inline using Markdown image syntax
+3. Publish in one step:
+   `python3 create_post.py publish content/posts/your-post.md`
+
+This command writes the article under `insights/YYYY/M/D/slug.html` and then
+regenerates Insights/blog index, pagination, and tag pages.
+
+### Remove a blog post
+
+Use the post helper to remove both the generated article and its publish mapping,
+then rebuild listings/tag pages in one step.
+
+```bash
+python3 create_post.py unpublish content/posts/your-post.md
+# or by published output path:
+python3 create_post.py unpublish insights/YYYY/M/D/your-post.html
+```
+
+Note: editing `content/posts/.publish-map.json` by itself does not remove article
+files under `insights/` until you rebuild. On `python3 generate_insights.py`,
+any mapped output removed from the publish map is now pruned automatically.
+The `unpublish` command still does immediate remove + rebuild in one step.
+
+### New Post Golden Path
+
+1. Copy `content/posts/sample-new-post.md` to a new file in `content/posts/`.
+2. Replace `title`, `date` (or remove it), `tags`, and the body text.
+3. Add your images to `assets/blog/`.
+4. Reference each image exactly where it should appear in the story.
+5. Run:
+   `python3 create_post.py publish content/posts/your-post.md`
+6. Preview locally with `python3 -m http.server 8137`.
+7. Use the generated sample page as output reference:
+   `insights/2026/7/18/sample-new-post-template.html`
+
+### Image Placement Reference
+
+Valid inline examples:
+
+```md
+![Portrait in window light](assets/blog/portrait-window-light.jpg)
+![Close detail](assets/blog/close-detail.jpg)
+![Relative path from source folder](../../assets/blog/close-detail.jpg)
+```
+
+Invalid example (remote URL is rejected):
+
+```md
+![Do not use remote URLs](https://example.com/photo.jpg)
+```
+
+Notes:
+- Alt text is the text inside `[]`.
+- Image files must exist before you publish.
+- Keep images in-repo (recommended location: `assets/blog/`).
 
 ## The side menu
 

@@ -1,0 +1,20 @@
+---
+title: Sample New Post Template
+date: 2026-07-18
+tags: Process, Photography
+slug: sample-new-post-template
+---
+
+This is a sample source post you can duplicate for every new article. Replace the title, text, and image paths, then run the publish command to generate the final page and refresh Insights listings.
+
+![Street scene with evening light](assets/blog/05278c7ff9bd8d83.jpg)
+
+Use normal paragraphs for your writing. Keep images exactly where you want them to appear in the story by placing each image on its own line with Markdown image syntax.
+
+![Detail of architecture and sky](assets/blog/15A0199-grey-building-blue-window-sac-palm-trees.jpg)
+
+## Quick notes
+
+- Save your photos in assets/blog before publishing.
+- Use alt text inside the square brackets.
+- Keep image paths repository-relative like assets/blog/your-file.jpg.
