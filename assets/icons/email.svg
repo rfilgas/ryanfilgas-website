@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" role="img" aria-labelledby="title">
+  <title id="title">Email</title>
+  <path fill="currentColor" d="M0 4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v.217L8 8.666.001 4.217V4z"/>
+  <path fill="currentColor" d="M0 5.383V12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V5.383l-7.445 4.654a1 1 0 0 1-1.11 0L0 5.383z"/>
+</svg>

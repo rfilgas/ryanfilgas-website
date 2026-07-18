@@ -1,0 +1,14 @@
+Icon Sources and License
+
+The SVG icon paths for email.svg, linkedin.svg, and github.svg are derived from Bootstrap Icons.
+
+Source project: Bootstrap Icons
+Homepage: https://icons.getbootstrap.com/
+Repository: https://github.com/twbs/icons
+License: MIT
+License text: https://github.com/twbs/icons/blob/main/LICENSE.md
+
+Specific icon source pages:
+- Envelope: https://icons.getbootstrap.com/icons/envelope-fill/
+- LinkedIn: https://icons.getbootstrap.com/icons/linkedin/
+- GitHub: https://icons.getbootstrap.com/icons/github/
