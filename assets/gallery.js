@@ -17,6 +17,7 @@
   const selectedImage = selectedPanel.querySelector('.gallery-selected-image img');
   const numbers = selectedPanel.querySelector('.gallery-selected-numbers');
   const thumbnails = selectedPanel.querySelector('[data-action="thumbnails"]');
+  const closeButton = selectedPanel.querySelector('[data-action="close"]');
   const previousZone = selectedPanel.querySelector('[data-action="previous-photo"]');
   const nextZone = selectedPanel.querySelector('[data-action="next-photo"]');
   const cursorSample = document.createElement('canvas');
@@ -40,12 +41,13 @@
       light: cursor('M6.5 3 12.5 9l-6 6', '#555', 'e-resize'),
     },
   };
+  const isMobile = () => window.matchMedia('(max-width: 699px)').matches;
 
   const reveal = (image) => image.decode().catch(() => {}).finally(() => image.classList.add('is-loaded'));
 
   const sizeSelection = (image = selectedImage) => {
     if (selected < 0 || !image.naturalWidth) return;
-    if (window.matchMedia('(max-width: 699px)').matches) {
+    if (isMobile()) {
       selectedFigure.style.width = '';
       selectedFigure.style.height = '';
       selectedFigure.style.removeProperty('--selected-next-zone-width');
@@ -105,6 +107,7 @@
   };
 
   const rememberCursor = (event) => {
+    if (event.pointerType === 'touch') return; // skip desktop cursor-tone tracking on touch
     cursorPoint = {
       clientX: event.clientX,
       clientY: event.clientY,
@@ -152,6 +155,7 @@
   });
 
   thumbnails.addEventListener('click', showThumbnails);
+  if (closeButton) closeButton.addEventListener('click', showThumbnails);
   previousZone.addEventListener('click', () => renderSelection(selected - 1));
   nextZone.addEventListener('click', () => renderSelection(selected + 1));
   previousZone.addEventListener('pointermove', rememberCursor);
@@ -165,12 +169,53 @@
     } else if (event.key === 'ArrowRight') {
       event.preventDefault();
       renderSelection(selected + 1);
+    } else if (event.key === 'Escape') {
+      showThumbnails();
     }
   });
   window.addEventListener('resize', () => {
     layout();
     sizeSelection();
   });
+
+  // Swipe navigation for the fullscreen mobile viewer.
+  let touchStartX = 0;
+  let touchStartY = 0;
+  let touchActive = false;
+  const SWIPE_THRESHOLD = 40;
+
+  selectedFigure.addEventListener('touchstart', (event) => {
+    if (!isMobile() || event.touches.length !== 1) return;
+    touchStartX = event.touches[0].clientX;
+    touchStartY = event.touches[0].clientY;
+    touchActive = true;
+  }, { passive: true });
+
+  selectedFigure.addEventListener('touchmove', (event) => {
+    if (!touchActive || event.touches.length !== 1) return;
+    const deltaX = event.touches[0].clientX - touchStartX;
+    const deltaY = event.touches[0].clientY - touchStartY;
+    // Once it's clearly a horizontal drag, take over so the browser doesn't
+    // treat it as its own back/scroll gesture and swallow the touchend.
+    if (Math.abs(deltaX) > Math.abs(deltaY)) {
+      event.preventDefault();
+    }
+  }, { passive: false });
+
+  selectedFigure.addEventListener('touchend', (event) => {
+    if (!touchActive) return;
+    touchActive = false;
+    const touch = event.changedTouches[0];
+    const deltaX = touch.clientX - touchStartX;
+    const deltaY = touch.clientY - touchStartY;
+    if (Math.abs(deltaX) > SWIPE_THRESHOLD && Math.abs(deltaX) > Math.abs(deltaY)) {
+      renderSelection(deltaX < 0 ? selected + 1 : selected - 1);
+    }
+  }, { passive: true });
+
+  selectedFigure.addEventListener('touchcancel', () => {
+    touchActive = false;
+  }, { passive: true });
 
   Promise.all(photos.map((photo) => photo.querySelector('img').decode().catch(() => {}))).then(() => {
     columns = 0;

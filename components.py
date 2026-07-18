@@ -135,7 +135,8 @@ def document(*, title, description, body, active="", prefix="", title_suffix=Tru
 
 
 def gallery_main(label, photos, prefix=""):
-    """Gallery grid + in-flow selected photo view. ``photos`` is a list of (src, alt)."""
+    """Gallery grid + fullscreen (on mobile) selected photo view. ``photos``
+    is a list of (src, alt)."""
     cards = []
     for i, (src, alt) in enumerate(photos):
         loading = "" if i == 0 else ' loading="lazy"'
@@ -148,8 +149,9 @@ def gallery_main(label, photos, prefix=""):
     <section class="gallery-selected" aria-label="Selected photo" hidden>
       <figure class="gallery-selected-image">
         <img alt="">
-        <button class="gallery-selected-nav-zone gallery-selected-nav-zone-prev" type="button" aria-label="Previous photo" data-action="previous-photo"></button>
-        <button class="gallery-selected-nav-zone gallery-selected-nav-zone-next" type="button" aria-label="Next photo" data-action="next-photo"></button>
+        <button class="gallery-selected-close" type="button" aria-label="Close" data-action="close">✕</button>
+        <button class="gallery-selected-nav-zone gallery-selected-nav-zone-prev" type="button" aria-label="Previous photo" data-action="previous-photo"><span class="gallery-selected-arrow" aria-hidden="true">‹</span></button>
+        <button class="gallery-selected-nav-zone gallery-selected-nav-zone-next" type="button" aria-label="Next photo" data-action="next-photo"><span class="gallery-selected-arrow" aria-hidden="true">›</span></button>
       </figure>
       <div class="gallery-selected-meta">
         <div class="gallery-selected-numbers" aria-label="Photo navigation"></div>
