@@ -92,7 +92,13 @@ def header(active="", prefix=""):
     )
     return f"""  <header class="site-header">
     <a class="logo" href="{prefix}index.html" aria-label="Ryan Filgas home"><img src="{prefix}assets/logo.png" alt="RYAN FILGAS"></a>
-    <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="site-navigation">Menu</button>
+    <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="site-navigation">
+      <span class="menu-toggle-line"></span>
+      <span class="menu-toggle-line"></span>
+      <span class="menu-toggle-line"></span>
+      Menu
+    </button>
+
     <nav class="site-nav" id="site-navigation" aria-label="Main navigation">
       <ul>
         {art}

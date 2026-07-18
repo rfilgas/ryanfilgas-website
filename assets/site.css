@@ -333,14 +333,13 @@ a:focus-visible {
 
 @media (max-width: 699px) {
   .site-header {
-    position: absolute;
+    position: static;   /* was inheriting `fixed` from the base rule — put it back in flow */
     top: 0;
     z-index: 10;
     width: 100%;
     height: auto;
     min-height: 104px;
     padding: 20px 14px 12px;
-    border-bottom: 1px solid #eee;
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
@@ -368,36 +367,35 @@ a:focus-visible {
     cursor: pointer;
   }
 
-  .menu-toggle::before,
-  .menu-toggle::after,
-  .menu-toggle span {
-    content: "";
-    position: absolute;
-    left: 3px;
-    width: 28px;
-    height: 3px;
-    background: currentColor;
-    transition: top .25s ease, transform .25s ease, opacity .25s ease;
-  }
+  .menu-toggle-line {
+  content: none;
+  position: absolute;
+  left: 3px;
+  width: 28px;
+  height: 3px;
+  background: currentColor;
+  transition: top .25s ease, transform .25s ease, opacity .25s ease;
+}
+.menu-toggle-line:nth-child(1) { top: 5px; }
+.menu-toggle-line:nth-child(2) { top: 13px; }
+.menu-toggle-line:nth-child(3) { top: 21px; }
 
-  .menu-toggle::before { top: 5px; }
-  .menu-toggle span { top: 13px; }
-  .menu-toggle::after { top: 21px; }
+
 
   .site-header:has(.site-nav.is-open) .menu-toggle {
     color: #fff;
   }
 
-  .site-header:has(.site-nav.is-open) .menu-toggle::before {
+.site-header:has(.site-nav.is-open) .menu-toggle-line:nth-child(1) {
     top: 13px;
     transform: rotate(45deg);
   }
 
-  .site-header:has(.site-nav.is-open) .menu-toggle span {
+  .site-header:has(.site-nav.is-open) .menu-toggle-line:nth-child(2) {
     opacity: 0;
   }
 
-  .site-header:has(.site-nav.is-open) .menu-toggle::after {
+  .site-header:has(.site-nav.is-open) .menu-toggle-line:nth-child(3) {
     top: 13px;
     transform: rotate(-45deg);
   }
