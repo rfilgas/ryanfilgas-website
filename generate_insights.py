@@ -1,49 +1,23 @@
 #!/usr/bin/env python3
-"""Build the native blog/Insights pages from the mirrored legacy-platform source.
+"""Build local Insights and blog pages from existing on-disk article HTML.
 
-Reads the original mirrored markup for each page from git HEAD (so the
-generator is reproducible no matter what is currently on disk) and writes
-semantic, dependency-free static HTML that shares the site's native shell
-(assets/native.css) with the rest of the already-converted pages.
-
-Covers:
-  * insights/, blog/, and the mirrored offset list -> the Insights index
-  * insights/tag/*.html                -> tag list routes
-  * insights/*/*/*/*.html              -> individual articles
+The generator treats the checked-in article pages under insights/YYYY/M/D/*.html
+as the source of truth and rewrites index, tag, and article pages using the
+shared site shell. No git-history lookups are used.
 """
 
 from __future__ import annotations
 
 import posixpath
 import re
-import hashlib
-import shutil
-import subprocess
 from dataclasses import dataclass
 from html import escape, unescape
-from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import urlparse
 
 import components
 
 ROOT = Path(__file__).resolve().parent
-
-# The original legacy-platform mirror lives in this commit; sourcing from it keeps
-# the generator reproducible even after the mirror dirs are removed from disk.
-MIRROR = "legacy-source"
-
-ARTICLE_PATHS = [
-    "insights/2023/11/11/2023.html",
-    "insights/2021/11/19/new-beginnings-version-2.html",
-    "insights/2020/2/4/portland-marketing-week-two-disorganized-thoughts-from-disorganized-marketing.html",
-    "insights/2019/3/23/6-month-reflections.html",
-    "insights/2019/1/1/goodbye-2018.html",
-    "insights/2017/5/13/new-directions.html",
-    "insights/2017/2/14/reboot.html",
-    "insights/2016/4/17/the-carson-block-building.html",
-    "insights/2015/9/6/i-graduated.html",
-]
 
 PAGINATED_INDEX_ROUTE = "blog/page-2.html"
 LEGACY_PAGINATED_INDEX_ROUTE = "blog/index.html?offset=1487147475880.html"
@@ -53,62 +27,22 @@ POST_THUMBNAIL_FALLBACKS = {
     "Portland Marketing - Week Two - Disorganized thoughts from disorganized marketing": "assets/blog/skyline.jpg",
 }
 
-VOID_TAGS = {"br", "img", "hr", "input", "meta", "link"}
-INLINE_ALLOWED = {"p", "br", "ol", "ul", "li", "strong", "em", "b", "i", "blockquote", "a"}
 
+def discover_article_paths() -> list[str]:
+    """Discover article pages from the local insights tree, newest first."""
 
-def git_show(path: str) -> str:
-    result = subprocess.run(
-        ["git", "show", f"{MIRROR}:{path}"],
-        cwd=ROOT,
-        capture_output=True,
-        text=True,
-        check=True,
-    )
-    return result.stdout
+    candidates = [
+        path
+        for path in (ROOT / "insights").glob("*/*/*/*.html")
+        if path.name != "index.html"
+    ]
 
+    def key(path: Path) -> tuple[int, int, int, str]:
+        rel = path.relative_to(ROOT).as_posix().split("/")
+        year, month, day = int(rel[1]), int(rel[2]), int(rel[3])
+        return (year, month, day, rel[4])
 
-def git_show_bytes(path: str) -> bytes:
-    result = subprocess.run(
-        ["git", "show", f"{MIRROR}:{path}"],
-        cwd=ROOT,
-        capture_output=True,
-        check=True,
-    )
-    return result.stdout
-
-
-def local_image_path(url: str) -> str:
-    """Copy a mirrored source image into assets/blog/. Falls back to reading the
-    image bytes from the mirror commit when the working-tree copy is gone."""
-    parsed = urlparse(url)
-    source = Path(parsed.netloc + parsed.path)
-    suffix = source.suffix.lower() or ".jpg"
-    destination = Path("assets/blog") / f"{hashlib.sha256(url.encode()).hexdigest()[:16]}{suffix}"
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    if not (ROOT / destination).exists():
-        if (ROOT / source).is_file():
-            shutil.copy2(ROOT / source, ROOT / destination)
-        else:
-            try:
-                (ROOT / destination).write_bytes(git_show_bytes(source.as_posix()))
-            except subprocess.CalledProcessError:
-                raise FileNotFoundError(f"missing mirror image: {url}")
-    return destination.as_posix()
-
-
-def youtube_watch_url(embed_src: str) -> str:
-    """Turn a protocol-relative YouTube embed src into a stable https watch URL."""
-    match = re.search(r"youtube\.com/embed/([\w-]+)", embed_src)
-    if match:
-        return f"https://www.youtube.com/watch?v={match.group(1)}"
-    return "https:" + embed_src if embed_src.startswith("//") else embed_src
-
-
-def alt_from_filename(name: str) -> str:
-    stem = Path(name).stem
-    stem = re.sub(r"[_\-]+", " ", stem).strip()
-    return stem
+    return [path.relative_to(ROOT).as_posix() for path in sorted(candidates, key=key, reverse=True)]
 
 
 def fallback_thumbnail(title: str) -> str | None:
@@ -116,103 +50,6 @@ def fallback_thumbnail(title: str) -> str | None:
     if path and (ROOT / path).is_file():
         return path
     return None
-
-
-class BodyParser(HTMLParser):
-    """Walks a legacy-platform post body and emits an ordered list of content
-    blocks: ('html', text_html) for prose, or ('images', [(src, alt), ...])
-    for image/gallery blocks. A ('video', url) block is emitted for embedded
-    video components, rendered later as a plain link (no remote runtime
-    resource is fetched).
-    """
-
-    def __init__(self):
-        super().__init__(convert_charrefs=True)
-        self.blocks: list[tuple[str, object]] = []
-        self.stack: list[tuple[str, dict, int]] = []
-        self.block_stack: list[dict] = []  # active sqs-block contexts
-
-    def _current_block(self):
-        return self.block_stack[-1] if self.block_stack else None
-
-    def handle_starttag(self, tag, attrs):
-        attributes = dict(attrs)
-        classes = attributes.get("class", "").split()
-
-        if "sqs-block" in classes:
-            kind = "html"
-            if "gallery-block" in classes or "image-block" in classes:
-                kind = "images"
-            elif "video-block" in classes:
-                kind = "video"
-            elif "horizontalrule-block" in classes:
-                kind = "rule"
-            ctx = {
-                "kind": kind,
-                "depth": len(self.stack),
-                "html": [],
-                "images": [],
-                "seen": set(),
-                "video": None,
-                "capturing": False,
-                "capture_depth": None,
-            }
-            self.block_stack.append(ctx)
-
-        ctx = self._current_block()
-        if ctx is not None:
-            if tag == "img" and "data-image" in attributes:
-                url = attributes["data-image"]
-                if url not in ctx["seen"]:
-                    ctx["seen"].add(url)
-                    ctx["images"].append((url, attributes.get("alt", "")))
-            elif ctx["kind"] == "video" and tag == "div" and attributes.get("data-provider-name"):
-                raw = unescape(attributes.get("data-html", ""))
-                match = re.search(r'src="([^"]+)"', raw)
-                if match:
-                    ctx["video"] = match.group(1)
-            elif ctx["kind"] == "html" and "sqs-html-content" in classes and not ctx["capturing"]:
-                ctx["capturing"] = True
-                ctx["capture_depth"] = len(self.stack)
-            elif ctx.get("capturing") and tag in INLINE_ALLOWED:
-                attr_html = ""
-                if tag == "a" and "href" in attributes:
-                    attr_html = f' href="{escape(attributes["href"], quote=True)}"'
-                ctx["html"].append(f"<{tag}{attr_html}>")
-
-        if tag not in VOID_TAGS:
-            self.stack.append((tag, attributes, len(self.block_stack)))
-        elif ctx is not None and ctx.get("capturing") and tag == "br":
-            ctx["html"].append("<br>")
-
-    def handle_endtag(self, tag):
-        ctx = self._current_block()
-        if ctx is not None and ctx.get("capturing") and tag in INLINE_ALLOWED:
-            ctx["html"].append(f"</{tag}>")
-
-        for index in range(len(self.stack) - 1, -1, -1):
-            if self.stack[index][0] == tag:
-                del self.stack[index:]
-                break
-
-        if ctx is not None and ctx.get("capturing") and tag == "div" and len(self.stack) <= ctx["capture_depth"]:
-            ctx["capturing"] = False
-
-        if tag == "div" and self.block_stack:
-            top = self.block_stack[-1]
-            if len(self.stack) <= top["depth"]:
-                self.block_stack.pop()
-                if top["kind"] == "html" and top["html"]:
-                    self.blocks.append(("html", "".join(top["html"]).strip()))
-                elif top["kind"] == "images" and top["images"]:
-                    self.blocks.append(("images", top["images"]))
-                elif top["kind"] == "video" and top["video"]:
-                    self.blocks.append(("video", top["video"]))
-
-    def handle_data(self, data):
-        ctx = self._current_block()
-        if ctx is not None and ctx.get("capturing"):
-            ctx["html"].append(escape(data))
 
 
 @dataclass
@@ -236,79 +73,12 @@ class Article:
 
 
 def parse_article(path: str) -> Article:
-    text = git_show(path)
-    if 'class="entry-title"' not in text:
-        return parse_native_article(path, text)
-
-    title_match = re.search(r'<h1 class="entry-title">\s*<a[^>]*>([^<]*)</a>', text)
-    title = unescape(title_match.group(1).strip()) if title_match else path
-
-    time_match = re.search(r'<time datetime="([^"]+)">([^<]*)</time>', text)
-    date_iso = time_match.group(1) if time_match else ""
-    date_display = unescape(time_match.group(2).strip()) if time_match else ""
-
-    tags_match = re.search(r'<span class="tags">Tags: (.*?)</span>', text)
-    tags: list[tuple[str, str]] = []
-    if tags_match:
-        for href, name in re.findall(r'<a href="[^"]*/tag/([^"]+?)\.html#show-archive"[^>]*>([^<]+)</a>', tags_match.group(1)):
-            tags.append((f"{href}.html", unescape(name)))
-
-    body_match = re.search(r'<div class="body entry-content">(.*?)\n\s*<!--POST FOOTER-->', text, re.S)
-    body_html = body_match.group(1) if body_match else ""
-
-    parser = BodyParser()
-    parser.feed(body_html)
-
-    blocks = []
-    thumbnail = None
-    excerpt = ""
-    for kind, payload in parser.blocks:
-        if kind == "html":
-            blocks.append(("html", payload))
-            if not excerpt:
-                first_p = re.search(r"<p[^>]*>(.*?)</p>", payload, re.S)
-                if first_p:
-                    plain = re.sub(r"<[^>]+>", " ", first_p.group(1))
-                    plain = re.sub(r"\s+", " ", unescape(plain)).strip()
-                    if plain:
-                        excerpt = plain
-        elif kind == "images":
-            resolved = []
-            for url, alt in payload:
-                src = local_image_path(url)
-                alt_text = unescape(alt).strip() or alt_from_filename(src)
-                resolved.append((src, alt_text))
-                if thumbnail is None:
-                    thumbnail = src
-            blocks.append(("images", resolved))
-        elif kind == "video":
-            blocks.append(("video", youtube_watch_url(payload)))
-
-    if len(excerpt) > 220:
-        cut = excerpt.rfind(" ", 0, 217)
-        excerpt = excerpt[: cut if cut > 0 else 217].rstrip() + "\u2026"
-
-    if thumbnail is None:
-        fallback = fallback_thumbnail(title)
-        if fallback:
-            thumbnail = fallback
-            if not any(kind == "images" for kind, _ in blocks):
-                blocks.insert(0, ("images", [(fallback, alt_from_filename(fallback))]))
-
-    return Article(
-        path=path,
-        title=title,
-        date_iso=date_iso,
-        date_display=date_display,
-        tags=tags,
-        blocks=blocks,
-        thumbnail=thumbnail,
-        excerpt=excerpt,
-    )
+    text = (ROOT / path).read_text(encoding="utf-8")
+    return parse_native_article(path, text)
 
 
 def parse_native_article(path: str, text: str) -> Article:
-    """Read a previously generated article so reruns remain reproducible."""
+    """Read a previously generated local article and normalize it."""
     title_match = re.search(r"<h1>(.*?)</h1>", text, re.S)
     title = unescape(re.sub(r"<[^>]+>", "", title_match.group(1)).strip()) if title_match else path
 
@@ -319,14 +89,14 @@ def parse_native_article(path: str, text: str) -> Article:
     main_match = re.search(r'<main class="content-page post">(.*?)</main>', text, re.S)
     main_html = main_match.group(1) if main_match else ""
     body_start = re.search(r"</h1>\s*", main_html, re.S)
-    body = main_html[body_start.end():] if body_start else main_html
+    body = main_html[body_start.end() :] if body_start else main_html
 
     tags: list[tuple[str, str]] = []
     tags_match = re.match(r'<p class="post-tags">Tags: (.*?)</p>\s*', body, re.S)
     if tags_match:
         for href, name in re.findall(r'<a href="([^"]+)">(.*?)</a>', tags_match.group(1), re.S):
             tags.append((posixpath.basename(urlparse(href).path), unescape(re.sub(r"<[^>]+>", "", name)).strip()))
-        body = body[tags_match.end():]
+        body = body[tags_match.end() :]
 
     image_match = re.search(r'<img src="([^"]+)"', body)
     thumbnail = None
@@ -341,7 +111,7 @@ def parse_native_article(path: str, text: str) -> Article:
         excerpt = re.sub(r"\s+", " ", unescape(re.sub(r"<[^>]+>", " ", first_p.group(1)))).strip()
         if len(excerpt) > 220:
             cut = excerpt.rfind(" ", 0, 217)
-            excerpt = excerpt[: cut if cut > 0 else 217].rstrip() + "\u2026"
+            excerpt = excerpt[: cut if cut > 0 else 217].rstrip() + "..."
 
     return Article(
         path=path,
@@ -361,18 +131,10 @@ def rel(from_dir: str, target: str) -> str:
     return posixpath.relpath(target, from_dir)
 
 
-def nav_link(label, href, current):
-    attribute = ' aria-current="page"' if current else ""
-    return f'<a href="{href}"{attribute}>{label}</a>'
-
-
 def _prefix(from_dir: str) -> str:
     if from_dir in ("", "."):
         return ""
     return posixpath.relpath(".", from_dir) + "/"
-
-
-MENU_SCRIPT = ""  # menu toggle now handled by assets/gallery.js
 
 
 def page_shell(title: str, description: str, from_dir: str, insights_current: bool, main_html: str) -> str:
@@ -385,31 +147,17 @@ def page_shell(title: str, description: str, from_dir: str, insights_current: bo
     )
 
 
-def render_block_html(block_html: str) -> str:
-    return block_html if block_html else ""
-
-
 def render_article_body(article: Article, from_dir: str) -> str:
     parts = []
     for kind, payload in article.blocks:
-        if kind == "html":
-            parts.append(f"    {render_block_html(payload)}")
-        elif kind == "images":
-            if len(payload) == 1:
-                src, alt = payload[0]
-                parts.append(
-                    f'    <figure class="post-figure"><img src="{rel(from_dir, src)}" alt="{escape(alt, quote=True)}" loading="lazy"></figure>'
-                )
-            else:
-                figures = "\n".join(
-                    f'        <img src="{rel(from_dir, src)}" alt="{escape(alt, quote=True)}" loading="lazy">'
-                    for src, alt in payload
-                )
-                parts.append(f'    <div class="post-gallery">\n{figures}\n    </div>')
-        elif kind == "video":
-            parts.append(
-                f'    <p class="post-video-link">Video: <a href="{escape(payload, quote=True)}">{escape(payload)}</a></p>'
+        if kind == "html" and payload:
+            html = payload
+            html = re.sub(
+                r'src="([^":]+(?:/[^":]*)?)"',
+                lambda m: f'src="{rel(from_dir, posixpath.normpath(posixpath.join(posixpath.dirname(article.path), m.group(1))))}"',
+                html,
             )
+            parts.append(f"    {html}")
     return "\n".join(p for p in parts if p.strip())
 
 
@@ -431,7 +179,7 @@ def render_article_page(article: Article) -> str:
     <h1>{escape(article.title)}</h1>
 {tags_line}{body}
   </main>"""
-    return page_shell(article.title, f"{article.title} \u2013 Insights by Ryan Filgas", from_dir, True, main)
+    return page_shell(article.title, f"{article.title} - Insights by Ryan Filgas", from_dir, True, main)
 
 
 def render_post_card(article: Article, from_dir: str) -> str:
@@ -475,7 +223,7 @@ def render_index_page(
 ) -> str:
     intro = (
         "<p>Notes on photography, art, and the occasional software engineering detour "
-        "\u2014 a running log from Ryan Filgas.</p>"
+        "- a running log from Ryan Filgas.</p>"
     )
     pagination = ""
     if previous_href or next_href:
@@ -497,29 +245,30 @@ def render_index_page(
 {pagination}
 {render_tag_cloud(all_tags, from_dir)}
   </main>"""
-    return page_shell(title, "Insights \u2013 photography, art, and software engineering notes by Ryan Filgas", from_dir, True, main)
+    return page_shell(title, "Insights - photography, art, and software engineering notes by Ryan Filgas", from_dir, True, main)
 
 
-def render_tag_page(tag_file: str, tag_name: str, matching: list[Article], from_dir: str) -> str:
+def render_tag_page(tag_name: str, matching: list[Article], from_dir: str) -> str:
     title = f"Tag: {tag_name}"
     main = f"""  <main class="content-page post-index">
     <h1>{escape(title)}</h1>
-    <p><a href="{rel(from_dir, 'insights/')}">\u2190 All Insights</a></p>
+    <p><a href="{rel(from_dir, 'insights/')}">&#8592; All Insights</a></p>
 {render_post_list(matching, from_dir)}
   </main>"""
-    return page_shell(title, f"Insights posts tagged {tag_name} \u2013 Ryan Filgas", from_dir, True, main)
+    return page_shell(title, f"Insights posts tagged {tag_name} - Ryan Filgas", from_dir, True, main)
 
 
-def main():
-    articles = [parse_article(path) for path in ARTICLE_PATHS]
+def main() -> None:
+    article_paths = discover_article_paths()
+    if not article_paths:
+        raise ValueError("No local insights article pages found")
 
-    # Write article pages in place.
+    articles = [parse_article(path) for path in article_paths]
+
     for article in articles:
         out_path = ROOT / article.path
         out_path.write_text(render_article_page(article), encoding="utf-8")
 
-    # Build the tag registry (tag file -> (display name, matching articles)) from
-    # the article data itself, in first-seen order.
     tag_registry: dict[str, tuple[str, list[Article]]] = {}
     for article in articles:
         for tag_file, name in article.tags:
@@ -529,9 +278,6 @@ def main():
 
     all_tags = [(tag_file, name) for tag_file, (name, _) in tag_registry.items()]
 
-    # Insights index routes share the same generated listing.  Use a static
-    # browser/server-safe second page route instead of the mirrored query
-    # artifact filename.
     first_page = articles[:POSTS_PER_PAGE]
     second_page = articles[POSTS_PER_PAGE:]
 
@@ -539,19 +285,19 @@ def main():
     (ROOT / "insights" / "index.html").write_text(index_html, encoding="utf-8")
     blog_html = render_index_page(first_page, all_tags, "Blog", "blog", None, PAGINATED_INDEX_ROUTE if second_page else None)
     (ROOT / "blog" / "index.html").write_text(blog_html, encoding="utf-8")
-    offset_html = render_index_page(second_page, all_tags, "Blog", "blog", "insights/", None)
-    (ROOT / PAGINATED_INDEX_ROUTE).write_text(offset_html, encoding="utf-8")
+    page2_html = render_index_page(second_page, all_tags, "Blog", "blog", "insights/", None)
+    (ROOT / PAGINATED_INDEX_ROUTE).write_text(page2_html, encoding="utf-8")
+
     legacy_offset_path = ROOT / LEGACY_PAGINATED_INDEX_ROUTE
     if legacy_offset_path.exists() and LEGACY_PAGINATED_INDEX_ROUTE != PAGINATED_INDEX_ROUTE:
         legacy_offset_path.unlink()
 
-    # Tag list routes.
     for tag_file, (name, matching) in tag_registry.items():
         out_path = ROOT / "insights" / "tag" / tag_file
-        page = render_tag_page(tag_file, name, matching, "insights/tag")
+        page = render_tag_page(name, matching, "insights/tag")
         out_path.write_text(page, encoding="utf-8")
 
-    forbidden = ("legacy-platform", "typekit", "google fonts", "cdn.jsdelivr")
+    forbidden = ("typekit", "google fonts", "cdn.jsdelivr")
     generated_paths = (
         [ROOT / a.path for a in articles]
         + [ROOT / "insights" / "index.html", ROOT / "blog" / "index.html", ROOT / PAGINATED_INDEX_ROUTE]

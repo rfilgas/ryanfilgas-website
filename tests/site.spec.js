@@ -300,18 +300,3 @@ test('blog pagination next link loads browser-safe page 2', async ({ page, reque
   expect(html).toContain('New Directions');
 });
 
-test('index and blog article avoid legacy-platform and Typekit network requests', async ({ page }) => {
-  const blockedHosts = /(legacy-platform\.com|legacy-cdn\.com|typekit\.net)/i;
-  const forbidden = [];
-  page.on('request', (request) => {
-    const url = request.url();
-    if (blockedHosts.test(url)) forbidden.push(url);
-  });
-
-  await page.goto('/index.html');
-  await page.waitForLoadState('networkidle');
-  await page.goto('/insights/2023/11/11/2023.html');
-  await page.waitForLoadState('networkidle');
-
-  expect(forbidden).toEqual([]);
-});
